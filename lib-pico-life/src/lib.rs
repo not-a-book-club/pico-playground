@@ -171,6 +171,15 @@ impl Life {
 
         count
     }
+
+    /// Marks all cells as **dead**
+    pub fn clear(&mut self) {
+        for y in 0..self.height() {
+            for x in 0..self.width() {
+                self.set(x, y, false);
+            }
+        }
+    }
 }
 
 /// Patterns

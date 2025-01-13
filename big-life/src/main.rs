@@ -4,8 +4,11 @@ use minifb::{Key, KeyRepeat, Scale, ScaleMode, Window, WindowOptions};
 use rand::{rngs::SmallRng, RngCore, SeedableRng};
 
 fn main() {
-    const WIDTH: usize = 192;
-    const HEIGHT: usize = 128;
+    // TODO: Drive these with clap
+    // const WIDTH: usize = 192;
+    // const HEIGHT: usize = 128;
+    const WIDTH: usize = 128;
+    const HEIGHT: usize = 96;
 
     let mut pixels = vec![0_u32; WIDTH * HEIGHT];
     let mut window = Window::new(
@@ -62,16 +65,10 @@ fn main() {
         let mut cells_were_updated = false;
 
         if window.is_key_pressed(Key::C, KeyRepeat::No) {
-            // Clear everything to DEAD
-            for y in 0..life.height() {
-                for x in 0..life.width() {
-                    life.set(x, y, false);
-                }
-            }
+            life.clear();
 
             cells_were_updated = true;
         } else if window.is_key_pressed(Key::R, KeyRepeat::No) {
-            // Clear everything to ALIVE or DEAD, 50/50
             for y in 0..life.height() {
                 for x in 0..life.width() {
                     life.set(x, y, rng.next_u32() % 2 == 0);
@@ -80,14 +77,9 @@ fn main() {
 
             cells_were_updated = true;
         } else if window.is_key_pressed(Key::G, KeyRepeat::No) {
-            // Clear everything to DEAD
-            for y in 0..life.height() {
-                for x in 0..life.width() {
-                    life.set(x, y, false);
-                }
-            }
+            life.clear();
 
-            // And add back just the gliders
+            // Add back just the gliders
             for x in (0..life.width()).step_by(8) {
                 life.write_right_glider(x, 4);
             }
@@ -103,6 +95,7 @@ fn main() {
         // Copy any updated cells to the framebuffer
         if cells_were_updated {
             // TODO: We could dirty track ranges to speed up low-life simulation frames.
+            //       This quickly turns into quad-tree dirty state tracking.
             for y in 0..life.height() {
                 for x in 0..life.width() {
                     let idx = x + y * WIDTH as i32;
