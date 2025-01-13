@@ -25,7 +25,7 @@ fn main() {
     // TODO: We should query the display's preferred refresh rate instead of assuming 60
     window.set_target_fps(60);
 
-    let mut life = Life::new(WIDTH, HEIGHT);
+    let mut life = Life::new(WIDTH as i32, HEIGHT as i32);
     life.write_right_glider(0, 4);
 
     pub const AOC_BLUE: u32 = 0x0f_0f_23;
@@ -48,7 +48,8 @@ fn main() {
         if updated != 0 {
             for y in 0..life.height() {
                 for x in 0..life.width() {
-                    pixels[x + y * WIDTH] = palette[life.get(x, y) as usize];
+                    let idx = x + y * WIDTH as i32;
+                    pixels[idx as usize] = palette[life.get(x, y) as usize];
                 }
             }
         }

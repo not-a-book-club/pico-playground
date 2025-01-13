@@ -14,14 +14,14 @@ pub struct Life {
     // TODO: I think it's faster to store this in the object rather than each call into step, but need to benchmark
     shadow: [[u8; (MAX_COLS + 7) / 8]; MAX_ROWS],
 
-    width: usize,
-    height: usize,
+    width: i32,
+    height: i32,
 }
 
 /// Basic Usage
 impl Life {
     /// Creates a new `Life` simulation with the given dimensions where all cells are initially **dead**.
-    pub fn new(width: usize, height: usize) -> Self {
+    pub fn new(width: i32, height: i32) -> Self {
         Self {
             cells: [[0; (MAX_COLS + 7) / 8]; MAX_ROWS],
             shadow: [[0; (MAX_COLS + 7) / 8]; MAX_ROWS],
@@ -31,12 +31,12 @@ impl Life {
     }
 
     /// The width of the simulation
-    pub fn width(&self) -> usize {
+    pub fn width(&self) -> i32 {
         self.width
     }
 
     /// The height of the simulation
-    pub fn height(&self) -> usize {
+    pub fn height(&self) -> i32 {
         self.height
     }
 
@@ -45,13 +45,14 @@ impl Life {
     /// Cells outside the bounds of the simulation are always considered **dead** and
     /// calls to [`get()`](Life::get) with out of bounds coordinates are always **dead**.
     #[track_caller]
-    pub fn get(&self, x: usize, y: usize) -> bool {
+    pub fn get(&self, x: i32, y: i32) -> bool {
         if (x >= self.width()) || (y >= self.height()) {
             // Out of bounds reads are dead cells
             return false;
         }
 
-        let x0 = x / 8;
+        let y = y as usize;
+        let x0 = (x / 8) as usize;
         let x1 = x % 8;
         let mask = 1 << x1;
 
@@ -82,13 +83,14 @@ impl Life {
     /// # }
     /// ```
     #[track_caller]
-    pub fn set(&mut self, x: usize, y: usize, is_alive: bool) -> bool {
+    pub fn set(&mut self, x: i32, y: i32, is_alive: bool) -> bool {
         if (x >= self.width()) || (y >= self.height()) {
             // Out of bounds reads are dead cells
             return false;
         }
 
-        let x0 = x / 8;
+        let y = y as usize;
+        let x0 = (x / 8) as usize;
         let x1 = x % 8;
         let mask = 1 << x1;
         // println!("x={x}, y={y}");
@@ -109,7 +111,7 @@ impl Life {
     ///
     /// Cells outside the bounds of the simulation are always considered **dead** and
     /// calls to [`set()`](Life::set) with out of bounds coordinates are **ignored**.
-    pub fn set_cells(&mut self, cells: impl IntoIterator<Item = (usize, usize)>) {
+    pub fn set_cells(&mut self, cells: impl IntoIterator<Item = (i32, i32)>) {
         for (x, y) in cells.into_iter() {
             self.set(x, y, true);
         }
@@ -118,7 +120,7 @@ impl Life {
     /// Sets a cell in the shadow cells to be **alive** or **dead**.
     ///
     /// This is mostly identical to [`set()`](Life::set) except it operates on [`shadow`](Life::shadow) instead.
-    fn set_shadow(&mut self, x: usize, y: usize, is_alive: bool) -> bool {
+    fn set_shadow(&mut self, x: i32, y: i32, is_alive: bool) -> bool {
         if (x >= self.width()) || (y >= self.height()) {
             unreachable!(
                 "({x}, {y}) is out of bounds ({}, {})",
@@ -127,7 +129,8 @@ impl Life {
             );
         }
 
-        let x0 = x / 8;
+        let y = y as usize;
+        let x0 = (x / 8) as usize;
         let x1 = x % 8;
         let mask = 1 << x1;
 
@@ -205,7 +208,7 @@ impl Life {
     /// ```
     ///
     /// Where the top left is `(x, y)`.
-    pub fn write_right_glider(&mut self, x: usize, y: usize) {
+    pub fn write_right_glider(&mut self, x: i32, y: i32) {
         self.set(x + 0, y + 0, false);
         self.set(x + 1, y + 0, true);
         self.set(x + 2, y + 0, false);
@@ -230,7 +233,7 @@ impl Life {
     /// ```
     ///
     /// Where the top left is `(x, y)`.
-    pub fn write_left_glider(&mut self, x: usize, y: usize) {
+    pub fn write_left_glider(&mut self, x: i32, y: i32) {
         self.set(x + 0, y + 0, false);
         self.set(x + 1, y + 0, true);
         self.set(x + 2, y + 0, false);
