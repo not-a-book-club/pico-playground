@@ -1,13 +1,11 @@
-[package]
-name = "pico-life"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+resolver = "2"
+members = [
+    # Core lib logic
+    "lib-pico-life",
 
-[dependencies]
-minifb = { version = "0.27", optional = true }
-rand = { version = "0.8", features = ["small_rng"], default-features = false }
+    # TODO: pi pico binary
 
-[features]
-default = ["minifb"]
-minifb = ["std", "dep:minifb"]
-std = []
+    # Runner for Desktop-esque environments
+    "big-life",
+]
