@@ -1,29 +1,43 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(clippy::identity_op, clippy::collapsible_else_if)]
 
-// const ROWS: usize = 64;
-// const COLS: usize = 128;
-
-const ROWS: usize = 12;
-const COLS: usize = 16;
+// TODO: If we can alloc on the Pico, we should do that instead.
+const MAX_ROWS: usize = 64;
+const MAX_COLS: usize = 128;
 
 #[derive(Copy, Clone)]
 pub struct Life {
     /// Current state of the simulation
-    cells: [[u8; (COLS + 7) / 8]; ROWS],
+    cells: [[u8; (MAX_COLS + 7) / 8]; MAX_ROWS],
 
     /// Shadow copy of cells used when stepping the simulation
     // TODO: I think it's faster to store this in the object rather than each call into step, but need to benchmark
-    shadow: [[u8; (COLS + 7) / 8]; ROWS],
+    shadow: [[u8; (MAX_COLS + 7) / 8]; MAX_ROWS],
+
+    width: usize,
+    height: usize,
 }
 
 /// Basic Usage
 impl Life {
-    /// Creates a new `Life` simulation with all cells initially **dead**.
-    pub fn new() -> Self {
-        debug_assert_eq!(COLS % 8, 0);
+    /// Creates a new `Life` simulation with the given dimensions where all cells are initially **dead**.
+    pub fn new(width: usize, height: usize) -> Self {
+        Self {
+            cells: [[0; (MAX_COLS + 7) / 8]; MAX_ROWS],
+            shadow: [[0; (MAX_COLS + 7) / 8]; MAX_ROWS],
+            width,
+            height,
+        }
+    }
 
-        Self::default()
+    /// The width of the simulation
+    pub fn width(&self) -> usize {
+        self.width
+    }
+
+    /// The height of the simulation
+    pub fn height(&self) -> usize {
+        self.height
     }
 
     /// Checks whether the cell at `(x, y)` is **alive** or **dead**.
@@ -32,8 +46,7 @@ impl Life {
     /// calls to [`get()`](Life::get) with out of bounds coordinates are always **dead**.
     #[track_caller]
     pub fn get(&self, x: usize, y: usize) -> bool {
-        if (x >= COLS) || (y >= ROWS) {
-            // unreachable!("({x}, {y}) is out of bounds ({COLS}, {ROWS})");
+        if (x >= self.width()) || (y >= self.height()) {
             // Out of bounds reads are dead cells
             return false;
         }
@@ -57,7 +70,7 @@ impl Life {
     /// ```rust
     /// # use pico_life::Life;
     /// # fn main() {
-    /// let mut life = Life::new();
+    /// let mut life = Life::new(5, 5);
     ///
     /// // All cells start out as dead.
     /// assert_eq!(life.set(0, 0, true), false);
@@ -70,10 +83,9 @@ impl Life {
     /// ```
     #[track_caller]
     pub fn set(&mut self, x: usize, y: usize, is_alive: bool) -> bool {
-        if (x >= COLS) || (y >= ROWS) {
-            unreachable!("({x}, {y}) is out of bounds ({COLS}, {ROWS})");
-            // // Out of bounds reads are dead cells
-            // return false;
+        if (x >= self.width()) || (y >= self.height()) {
+            // Out of bounds reads are dead cells
+            return false;
         }
 
         let x0 = x / 8;
@@ -107,8 +119,12 @@ impl Life {
     ///
     /// This is mostly identical to [`set()`](Life::set) except it operates on [`shadow`](Life::shadow) instead.
     fn set_shadow(&mut self, x: usize, y: usize, is_alive: bool) -> bool {
-        if (x >= COLS) || (y >= ROWS) {
-            unreachable!("({x}, {y}) is out of bounds ({COLS}, {ROWS})");
+        if (x >= self.width()) || (y >= self.height()) {
+            unreachable!(
+                "({x}, {y}) is out of bounds ({}, {})",
+                self.width(),
+                self.height()
+            );
         }
 
         let x0 = x / 8;
@@ -131,8 +147,8 @@ impl Life {
     pub fn step(&mut self) -> u32 {
         let mut count = 0;
 
-        for y in 0..ROWS {
-            for x in 0..COLS {
+        for y in 0..self.height() {
+            for x in 0..self.width() {
                 let mut live_count = 0;
 
                 if x != 0 && y != 0 {
@@ -234,8 +250,8 @@ impl Life {
 impl Life {
     /// Prints the state of the board to `stdout`
     pub fn print_ascii(&self) {
-        for y in 0..ROWS {
-            for x in 0..COLS {
+        for y in 0..self.height() {
+            for x in 0..self.width() {
                 if self.get(x, y) {
                     print!("O");
                 } else {
@@ -248,22 +264,13 @@ impl Life {
     }
 }
 
-impl Default for Life {
-    fn default() -> Self {
-        Self {
-            cells: [[0; (COLS + 7) / 8]; ROWS],
-            shadow: [[0; (COLS + 7) / 8]; ROWS],
-        }
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
 
     #[test]
     fn check_square_lives() {
-        let mut life = Life::new();
+        let mut life = Life::new(5, 5);
 
         // ....
         // .OO.
@@ -288,7 +295,7 @@ mod test {
 
     #[test]
     fn check_spinner_spins() {
-        let mut life = Life::new();
+        let mut life = Life::new(5, 5);
 
         // ...
         // .O.

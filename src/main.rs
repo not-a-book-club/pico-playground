@@ -1,25 +1,64 @@
 use pico_life::Life;
 
+use minifb::{Key, Scale, ScaleMode, Window, WindowOptions};
+
 fn main() {
-    let mut life = Life::new();
-    println!("Life is {} bytes", std::mem::size_of_val(&life));
+    const WIDTH: usize = 128;
+    const HEIGHT: usize = WIDTH / 2;
 
-    // Gliders
+    let mut pixels = vec![0_u32; WIDTH * HEIGHT];
+    let mut window = Window::new(
+        "👾 Pico Life~!",
+        WIDTH,
+        HEIGHT,
+        WindowOptions {
+            title: true,
+            resize: true,
+            scale: Scale::X8,
+            scale_mode: ScaleMode::Stretch,
+
+            ..WindowOptions::default()
+        },
+    )
+    .expect("Failed to create a window");
+
+    // TODO: We should query the display's preferred refresh rate instead of assuming 60
+    window.set_target_fps(60);
+
+    let mut life = Life::new(WIDTH, HEIGHT);
     life.write_right_glider(0, 4);
-    // life.write_left_glider(12, 0);
 
-    // Spinner
-    // life.set_cells([(1, 1), (1, 2), (1, 3)]);
+    pub const AOC_BLUE: u32 = 0x0f_0f_23;
+    pub const AOC_GOLD: u32 = 0xff_ff_66;
 
-    #[cfg(feature = "std")]
-    life.print_ascii();
+    let palette = [
+        AOC_BLUE, // dead
+        AOC_GOLD, // alive
+    ];
 
-    for _ in 0..1_000 {
-        if life.step() == 0 {
+    while window.is_open() {
+        if window.is_key_down(Key::Escape) {
             break;
         }
 
-        #[cfg(feature = "std")]
-        life.print_ascii();
+        // TODO: We should update every N ms, not every frame.
+        let updated = life.step();
+
+        // Copy any updated cells to the framebuffer
+        if updated != 0 {
+            for y in 0..life.height() {
+                for x in 0..life.width() {
+                    pixels[x + y * WIDTH] = palette[life.get(x, y) as usize];
+                }
+            }
+        }
+
+        // Present the framebuffer, updated or otherwise, to the screen
+        match window.update_with_buffer(&pixels, WIDTH, HEIGHT) {
+            Ok(()) => {}
+            Err(err) => {
+                println!("[ERROR] minifb encountered an error updating the framebuffer: {err:#?}")
+            }
+        }
     }
 }
