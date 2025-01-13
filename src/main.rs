@@ -1,10 +1,11 @@
 use pico_life::Life;
 
-use minifb::{Key, Scale, ScaleMode, Window, WindowOptions};
+use minifb::{Key, KeyRepeat, Scale, ScaleMode, Window, WindowOptions};
+use rand::{rngs::SmallRng, RngCore, SeedableRng};
 
 fn main() {
-    const WIDTH: usize = 128;
-    const HEIGHT: usize = WIDTH / 2;
+    const WIDTH: usize = 192;
+    const HEIGHT: usize = 128;
 
     let mut pixels = vec![0_u32; WIDTH * HEIGHT];
     let mut window = Window::new(
@@ -25,8 +26,15 @@ fn main() {
     // TODO: We should query the display's preferred refresh rate instead of assuming 60
     window.set_target_fps(60);
 
-    let mut life = Life::new(WIDTH as i32, HEIGHT as i32);
-    life.write_right_glider(0, 4);
+    let mut life = Life::new(WIDTH, HEIGHT);
+    if cfg!(debug_assertions) {
+        println!("<Life> is {} bytes", std::mem::size_of_val(&life));
+    }
+
+    // Step wide enough that gliders don't interfere
+    for x in (0..life.width()).step_by(8) {
+        life.write_right_glider(x, 4);
+    }
 
     pub const AOC_BLUE: u32 = 0x0f_0f_23;
     pub const AOC_GOLD: u32 = 0xff_ff_66;
@@ -36,16 +44,65 @@ fn main() {
         AOC_GOLD, // alive
     ];
 
+    let mut is_running = true;
+    let mut rng = SmallRng::from_seed([7; 32]);
+
     while window.is_open() {
-        if window.is_key_down(Key::Escape) {
+        if window.is_key_pressed(Key::Escape, KeyRepeat::No)
+            || window.is_key_pressed(Key::Q, KeyRepeat::No)
+        {
             break;
         }
 
-        // TODO: We should update every N ms, not every frame.
-        let updated = life.step();
+        if window.is_key_pressed(Key::Space, KeyRepeat::No) {
+            is_running ^= true;
+        }
+
+        // We don't want to update the framebuffer unless the sim changed.
+        let mut cells_were_updated = false;
+
+        if window.is_key_pressed(Key::C, KeyRepeat::No) {
+            // Clear everything to DEAD
+            for y in 0..life.height() {
+                for x in 0..life.width() {
+                    life.set(x, y, false);
+                }
+            }
+
+            cells_were_updated = true;
+        } else if window.is_key_pressed(Key::R, KeyRepeat::No) {
+            // Clear everything to ALIVE or DEAD, 50/50
+            for y in 0..life.height() {
+                for x in 0..life.width() {
+                    life.set(x, y, rng.next_u32() % 2 == 0);
+                }
+            }
+
+            cells_were_updated = true;
+        } else if window.is_key_pressed(Key::G, KeyRepeat::No) {
+            // Clear everything to DEAD
+            for y in 0..life.height() {
+                for x in 0..life.width() {
+                    life.set(x, y, false);
+                }
+            }
+
+            // And add back just the gliders
+            for x in (0..life.width()).step_by(8) {
+                life.write_right_glider(x, 4);
+            }
+
+            cells_were_updated = true;
+        }
+
+        if is_running {
+            // TODO: We should update every N ms, not every frame.
+            cells_were_updated |= life.step() != 0;
+        }
 
         // Copy any updated cells to the framebuffer
-        if updated != 0 {
+        if cells_were_updated {
+            // TODO: We could dirty track ranges to speed up low-life simulation frames.
             for y in 0..life.height() {
                 for x in 0..life.width() {
                     let idx = x + y * WIDTH as i32;

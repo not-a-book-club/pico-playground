@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 minifb = { version = "0.27", optional = true }
+rand = { version = "0.8", features = ["small_rng"], default-features = false }
 
 [features]
 default = ["minifb"]
