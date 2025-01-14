@@ -73,7 +73,7 @@ impl Life {
     ///
     /// # Example
     /// ```rust
-    /// # use pico_life::Life;
+    /// # use life::Life;
     /// # fn main() {
     /// let mut life = Life::new(5, 5);
     ///

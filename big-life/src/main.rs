@@ -1,4 +1,4 @@
-use pico_life::Life;
+use life::Life;
 
 use minifb::{Key, KeyRepeat, Scale, ScaleMode, Window, WindowOptions};
 use rand::{rngs::SmallRng, RngCore, SeedableRng};

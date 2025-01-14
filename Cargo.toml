@@ -2,9 +2,10 @@
 resolver = "2"
 members = [
     # Core lib logic
-    "lib-pico-life",
+    "life",
 
-    # TODO: pi pico binary
+    # TODO:
+    # "pico-life",
 
     # Runner for Desktop-esque environments
     "big-life",
