@@ -48,7 +48,7 @@ fn main() {
     ];
 
     let mut is_running = true;
-    let mut rng = SmallRng::from_seed([7; 32]);
+    let mut rng = SmallRng::from_seed(core::array::from_fn(|_| 7));
 
     while window.is_open() {
         if window.is_key_pressed(Key::Escape, KeyRepeat::No)

@@ -4,9 +4,15 @@ members = [
     # Core lib logic
     "life",
 
-    # TODO:
-    # "pico-life",
+    # Runner for rpi pico
+    "pico-life",
 
     # Runner for Desktop-esque environments
     "big-life",
 ]
+
+[profile.dev]
+opt-level = "z"
+
+[profile.release]
+opt-level = "z"

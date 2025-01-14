@@ -1,1 +1,4 @@
 /target
+PicoTest/*
+*.elf
+*.uf2
