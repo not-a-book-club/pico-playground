@@ -39,6 +39,8 @@ impl Elementry {
     }
 
     pub fn get(&self, x: i32) -> bool {
+        // Toggle this enable/disable wrapping along the edge
+        let x = (x + self.width()) % self.width();
         if 0 <= x && x < self.width() {
             let x0 = x / 8;
             let x1 = x % 8;
@@ -51,6 +53,8 @@ impl Elementry {
     }
 
     pub fn set(&mut self, x: i32, is_alive: bool) {
+        // Toggle this enable/disable wrapping along the edge
+        let x = (x + self.width()) % self.width();
         if 0 <= x && x < self.width() {
             let x0 = x / 8;
             let x1 = x % 8;
