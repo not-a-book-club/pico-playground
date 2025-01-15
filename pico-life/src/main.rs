@@ -65,7 +65,8 @@ fn main() -> ! {
         led_pin.set_high().unwrap();
         delay.delay_ms(750);
 
-        life.step();
+        let n_updated = life.step();
+        defmt::println!("Updated {} cells", n_updated);
 
         // Print it somewhere or something
 
