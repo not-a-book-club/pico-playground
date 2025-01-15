@@ -1,18 +1,37 @@
 #![no_std]
 #![no_main]
 
+extern crate alloc;
+
 use defmt_rtt as _;
+use embedded_alloc::LlffHeap as Heap;
 use embedded_hal::digital::OutputPin;
 use panic_probe as _;
 use rp_pico::hal;
 use rp_pico::hal::pac;
 use rp_pico::hal::prelude::*;
 
-use life::Life;
 use rand::{rngs::SmallRng, RngCore, SeedableRng};
+use simulations::Life;
+
+#[global_allocator]
+static HEAP: Heap = Heap::empty();
 
 #[rp_pico::entry]
 fn main() -> ! {
+    // Init Heap
+    {
+        #![allow(static_mut_refs)]
+        use core::mem::MaybeUninit;
+
+        const HEAP_SIZE: usize = 10 * 1024;
+        static mut HEAP_MEM: [MaybeUninit<u8>; HEAP_SIZE] = [MaybeUninit::uninit(); HEAP_SIZE];
+
+        unsafe {
+            HEAP.init(HEAP_MEM.as_ptr() as usize, HEAP_SIZE);
+        }
+    }
+
     // Singleton objects
     let mut pac = pac::Peripherals::take().unwrap();
     let core = pac::CorePeripherals::take().unwrap();

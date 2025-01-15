@@ -1,16 +1,15 @@
-use life::Life;
-
 use minifb::{Key, KeyRepeat, Scale, ScaleMode, Window, WindowOptions};
 use rand::{rngs::SmallRng, RngCore, SeedableRng};
 
+pub const AOC_BLUE: u32 = 0x0f_0f_23;
+pub const AOC_GOLD: u32 = 0xff_ff_66;
+
 fn main() {
     // TODO: Drive these with clap
-    // const WIDTH: usize = 192;
-    // const HEIGHT: usize = 128;
-    const WIDTH: usize = 128;
-    const HEIGHT: usize = 96;
+    const WIDTH: usize = 192;
+    const HEIGHT: usize = 128;
 
-    let mut pixels = vec![0_u32; WIDTH * HEIGHT];
+    let mut pixels = vec![AOC_BLUE; WIDTH * HEIGHT];
     let mut window = Window::new(
         "👾 Pico Life~!",
         WIDTH,
@@ -29,18 +28,12 @@ fn main() {
     // TODO: We should query the display's preferred refresh rate instead of assuming 60
     window.set_target_fps(60);
 
-    let mut life = Life::new(WIDTH, HEIGHT);
-    if cfg!(debug_assertions) {
-        println!("<Life> is {} bytes", std::mem::size_of_val(&life));
-    }
+    let mut life = simulations::Life::new(WIDTH, HEIGHT);
 
     // Step wide enough that gliders don't interfere
     for x in (0..life.width()).step_by(8) {
         life.write_right_glider(x, 4);
     }
-
-    pub const AOC_BLUE: u32 = 0x0f_0f_23;
-    pub const AOC_GOLD: u32 = 0xff_ff_66;
 
     let palette = [
         AOC_BLUE, // dead

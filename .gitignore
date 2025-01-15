@@ -1,5 +1,4 @@
 **/target
-PicoTest/*
 *.elf
 *.uf2
 /misc/

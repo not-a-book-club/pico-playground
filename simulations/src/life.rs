@@ -1,6 +1,3 @@
-#![cfg_attr(not(feature = "std"), no_std)]
-#![allow(clippy::identity_op, clippy::collapsible_else_if)]
-
 // TODO: If we can alloc on the Pico, we should do that instead.
 const MAX_ROWS: usize = 192;
 const MAX_COLS: usize = 192;
