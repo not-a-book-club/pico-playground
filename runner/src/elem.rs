@@ -19,9 +19,10 @@ fn main() {
     // let rule = 30;
     // let rule = 45;
     // let rule = 89;
-    let rule = 90;
+    // let rule = 90;
     // let rule = 110;
     // let rule = 184;
+    let rule: u8 = std::env::args().nth(1).as_deref().unwrap_or("90").parse().unwrap();
     let mut sim = simulations::Elementry::new(rule, width);
 
     let mut pixels = vec![AOC_BLUE; width * height];
@@ -77,6 +78,12 @@ fn main() {
 
             cells_were_updated = true;
             curr_y = 0;
+        } else if window.is_key_pressed(Key::F, KeyRepeat::No) {
+            sim.clear_alive();
+            pixels.fill(palette[0]);
+
+            cells_were_updated = true;
+            curr_y = 0;
         } else if window.is_key_pressed(Key::R, KeyRepeat::No) {
             for x in 0..sim.width() {
                 sim.set(x, rng.next_u32() % 2 == 0);
@@ -96,11 +103,12 @@ fn main() {
             curr_y = 0;
         }
 
-        if is_running {
+        if is_running && !cells_were_updated {
             // TODO: We should update every N ms, not every frame.
             let updated = sim.step();
 
             cells_were_updated |= updated != 0;
+            is_running |= updated != 0;
             curr_y += 1;
         }
 
