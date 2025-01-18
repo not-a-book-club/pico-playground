@@ -4,20 +4,21 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+simulations = { path = "../simulations", default-features = false }
+rand = { version = "0.8", features = ["small_rng"], default-features = false }
+
 cortex-m = "0.7"
 cortex-m-rt = "0.7"
 defmt = "0.3"
 defmt-rtt = "0.4"
 embedded-alloc = "0.6"
+embedded-graphics = "0.8"
 embedded-hal = "1"
 embedded-time = "0.12"
 panic-probe = "0.3"
 rp-pico = "0.9"
 rp2040-boot2 = "0.3"
 rp2040-hal = { version="0.11", features=["rt", "critical-section-impl"] }
-
-simulations = { path = "../simulations", default-features = false }
-rand = { version = "0.8", features = ["small_rng"], default-features = false }
 
 [[bin]]
 name = "pico"

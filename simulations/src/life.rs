@@ -1,6 +1,6 @@
 // TODO: If we can alloc on the Pico, we should do that instead.
-const MAX_ROWS: usize = 192;
-const MAX_COLS: usize = 192;
+const MAX_ROWS: usize = 255;
+const MAX_COLS: usize = 255;
 
 #[derive(Copy, Clone)]
 pub struct Life {
