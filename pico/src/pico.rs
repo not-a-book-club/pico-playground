@@ -174,6 +174,13 @@ fn main() -> ! {
         //     }
         // }
 
+        // sprinkle chaos
+        for _ in 0..10 {
+            let x = (rng.next_u32() as i32) % life.width();
+            let y = (rng.next_u32() as i32) % life.height();
+            life.set(x, y, life.get(x, y) ^ true);
+        }
+
         let n_updated = life.step();
         if n_updated != 0 {
             for y in 0..life.height() {
