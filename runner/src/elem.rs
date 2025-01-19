@@ -60,7 +60,7 @@ fn main() {
     let mut curr_y = 0;
 
     // Initial state sets 1 cell
-    sim.set(width as i32 / 2, true);
+    sim.set(width as i16 / 2, true);
     pixels[width / 2] = palette[1];
 
     while window.is_open() {
@@ -101,7 +101,7 @@ fn main() {
             sim.clear();
             pixels.fill(palette[0]);
 
-            sim.set(width as i32 / 2, true);
+            sim.set(width as i16 / 2, true);
             pixels[width / 2] = palette[1];
 
             cells_were_updated = true;
@@ -119,11 +119,11 @@ fn main() {
 
         // When we reach the bottom of the screen, clear and start at the top again. Ish.
         // TODO: We can do this much better than these giant blits every frame.
-        if curr_y >= height as i32 {
-            // let num_rows_preserved = height as i32 / 16;
-            // let num_rows_preserved = (15 * height as i32) / 16;
-            let num_rows_preserved = height as i32 - 1;
-            if height as i32 > num_rows_preserved {
+        if curr_y >= height as i16 {
+            // let num_rows_preserved = height as i16 / 16;
+            // let num_rows_preserved = (15 * height as i16) / 16;
+            let num_rows_preserved = height as i16 - 1;
+            if height as i16 > num_rows_preserved {
                 let src_start = ((curr_y - num_rows_preserved) * sim.width()) as usize;
                 let src_end = pixels.len();
 

@@ -9,7 +9,7 @@ pub struct Elementry {
     shadow: Vec<u8>,
 
     rule: u8,
-    width: i32,
+    width: i16,
 }
 
 /// Basic Usage
@@ -18,7 +18,7 @@ impl Elementry {
     pub fn new(rule: u8, width: usize) -> Self {
         let cells = vec![0; (width + 7) / 8];
         let shadow = cells.clone();
-        let width = width as i32;
+        let width = width as i16;
 
         Self {
             cells,
@@ -29,7 +29,7 @@ impl Elementry {
     }
 
     /// The width of the simulation
-    pub fn width(&self) -> i32 {
+    pub fn width(&self) -> i16 {
         self.width
     }
 
@@ -37,7 +37,7 @@ impl Elementry {
         (0..self.width()).map(|i| self.get(i))
     }
 
-    pub fn get(&self, x: i32) -> bool {
+    pub fn get(&self, x: i16) -> bool {
         // Toggle this enable/disable wrapping along the edge
         let x = (x + self.width()) % self.width();
         if 0 <= x && x < self.width() {
@@ -51,7 +51,7 @@ impl Elementry {
         }
     }
 
-    pub fn set(&mut self, x: i32, is_alive: bool) {
+    pub fn set(&mut self, x: i16, is_alive: bool) {
         // Toggle this enable/disable wrapping along the edge
         let x = (x + self.width()) % self.width();
         if 0 <= x && x < self.width() {
@@ -64,7 +64,7 @@ impl Elementry {
         }
     }
 
-    fn set_shadow(&mut self, x: i32, is_alive: bool) {
+    fn set_shadow(&mut self, x: i16, is_alive: bool) {
         if 0 <= x && x < self.width() {
             let x0 = x / 8;
             let x1 = x % 8;
