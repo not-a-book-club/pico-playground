@@ -1,5 +1,5 @@
 use minifb::{Key, KeyRepeat, Scale, ScaleMode, Window, WindowOptions};
-use rand::{rngs::SmallRng, RngCore, SeedableRng};
+use rand::{rngs::SmallRng, SeedableRng};
 
 pub const AOC_BLUE: u32 = 0x0f_0f_23;
 pub const AOC_GOLD: u32 = 0xff_ff_66;
@@ -62,11 +62,7 @@ fn main() {
 
             cells_were_updated = true;
         } else if window.is_key_pressed(Key::R, KeyRepeat::No) {
-            for y in 0..life.height() {
-                for x in 0..life.width() {
-                    life.set(x, y, rng.next_u32() % 2 == 0);
-                }
-            }
+            life.clear_random(&mut rng);
 
             cells_were_updated = true;
         } else if window.is_key_pressed(Key::G, KeyRepeat::No) {
@@ -91,7 +87,7 @@ fn main() {
             //       This quickly turns into quad-tree dirty state tracking.
             for y in 0..life.height() {
                 for x in 0..life.width() {
-                    let idx = x + y * WIDTH as i32;
+                    let idx = x + y * WIDTH as i16;
                     pixels[idx as usize] = palette[life.get(x, y) as usize];
                 }
             }

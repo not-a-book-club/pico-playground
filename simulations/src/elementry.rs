@@ -1,4 +1,3 @@
-
 use alloc::{vec, vec::Vec};
 
 #[derive(Clone)]
@@ -105,11 +104,10 @@ impl Elementry {
         self.cells.fill(0);
     }
 
-        /// Marks all cells as **alive**
+    /// Marks all cells as **alive**
     pub fn clear_alive(&mut self) {
         self.cells.fill(0xff);
     }
-
 }
 
 /// `std`-only functions

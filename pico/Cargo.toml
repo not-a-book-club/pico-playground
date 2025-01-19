@@ -28,6 +28,11 @@ path = "src/pico.rs"
 test = false
 bench = false
 
-# We don't expect to step through dependencies
+# Enable full optimizations on debug builds of dependencies.
+# We rarely step through them.
 [profile.dev.package."*"]
 opt-level = "z"
+
+# Enable minimal optimizations for our debug code.
+[profile.dev]
+opt-level = 1

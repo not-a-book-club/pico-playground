@@ -177,6 +177,17 @@ impl Life {
             }
         }
     }
+
+    /// Set all cells to **alive** or **dead** using the provided rng.
+    pub fn clear_random(&mut self, rng: &mut impl rand::Rng) {
+        self.clear();
+        let bytes: &mut [u8] = self.cells.as_flattened_mut();
+
+        for chunk in bytes.chunks_mut(4) {
+            let rand_bytes = rng.next_u32().to_le_bytes();
+            chunk.copy_from_slice(&rand_bytes[..chunk.len()]);
+        }
+    }
 }
 
 /// Patterns

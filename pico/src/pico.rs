@@ -13,7 +13,7 @@ use rp_pico::hal;
 use rp_pico::hal::{fugit::*, gpio, pac, prelude::*, Spi};
 use rp_pico::Pins;
 
-use rand::{rngs::SmallRng, RngCore, SeedableRng};
+use rand::{rngs::SmallRng, SeedableRng};
 use simulations::Life;
 
 mod image;
@@ -83,11 +83,7 @@ fn main() -> ! {
     let mut life = Life::new(WIDTH as usize / 4, HEIGHT as usize / 4);
     let mut rng = SmallRng::from_seed(core::array::from_fn(|_| 7));
 
-    for y in 0..life.height() {
-        for x in 0..life.width() {
-            life.set(x, y, rng.next_u32() % 2 == 0);
-        }
-    }
+    life.clear_random(&mut rng);
 
     // GPIOs:
     //      ePaper Pico/Pico2  Description
@@ -155,20 +151,42 @@ fn main() -> ! {
     let mut framebuffer = Image::new(WIDTH, HEIGHT);
     present(&mut dc, &mut cs, &mut spi, &framebuffer);
 
-    let palette = [AOC_BLUE, AOC_GOLD];
+    // Generate more of these at: https://coolors.co/313715-d16014
+    // Pick two and hit Space to generate random pairs until you like what you see
+    let palettes = [
+        [AOC_BLUE, AOC_GOLD],
+        // TODO: These pallets suck. Way too low contrast.
+        [Rgb565::from_rgb888(0x7B287D), Rgb565::from_rgb888(0x330C2F)],
+        [Rgb565::from_rgb888(0xFFFBFE), Rgb565::from_rgb888(0x7A7D7D)],
+        [Rgb565::from_rgb888(0xD16014), Rgb565::from_rgb888(0x313715)],
+    ];
+    let mut palette = 0;
+
+    // Age of the current simulation in steps
+    let mut sim_age = 0;
+    // MS delay after each step to make sure we have a good framerate
+    let per_step_delay_ms = 100;
 
     loop {
         led.set_high().unwrap();
 
         // if /* button A is pressed */ {
-        //     for y in 0..life.height() {
-        //         for x in 0..life.width() {
-        //             life.set(x, y, rng.next_u32() % 2 == 0);
-        //         }
-        //     }
+        //    life.clear_random(&mut rng);
         // }
 
+        // Simulations usually end in a looping and boring state, so periodically clear to random
+        if sim_age > {
+            (1000 / per_step_delay_ms) /* steps per second */ * 10 /* seconds */
+        } {
+            life.clear_random(&mut rng);
+
+            sim_age = 0;
+            palette += 1;
+            palette %= palettes.len();
+        }
+
         let n_updated = life.step();
+
         if n_updated != 0 {
             for y in 0..life.height() {
                 for x in 0..life.width() {
@@ -179,7 +197,7 @@ fn main() -> ! {
                         let y = 4 * (y as u16) + dy;
                         for dx in 0..4 {
                             let x = 4 * (x as u16) + dx;
-                            framebuffer[(x, y)] = palette[is_alive as usize];
+                            framebuffer[(x, y)] = palettes[palette][is_alive as usize];
                         }
                     }
                 }
@@ -188,9 +206,10 @@ fn main() -> ! {
 
         // clear_to(&mut dc, &mut cs, &mut spi, 0xF81F_u16);
         present(&mut dc, &mut cs, &mut spi, &framebuffer);
+        sim_age += 1;
 
         led.set_low().unwrap();
-        delay.delay_ms(10);
+        delay.delay_ms(per_step_delay_ms);
     }
 }
 

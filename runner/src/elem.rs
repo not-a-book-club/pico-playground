@@ -22,7 +22,12 @@ fn main() {
     // let rule = 90;
     // let rule = 110;
     // let rule = 184;
-    let rule: u8 = std::env::args().nth(1).as_deref().unwrap_or("90").parse().unwrap();
+    let rule: u8 = std::env::args()
+        .nth(1)
+        .as_deref()
+        .unwrap_or("90")
+        .parse()
+        .unwrap();
     let mut sim = simulations::Elementry::new(rule, width);
 
     let mut pixels = vec![AOC_BLUE; width * height];
