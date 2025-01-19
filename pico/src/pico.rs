@@ -152,6 +152,9 @@ fn main() -> ! {
             delay.delay_ms(100);
         }
     }
+
+    // TODO: Read frame data before we init, it's a source of RNG!
+
     let mut display = LcdDriver::new(spi_dev, dc);
 
     // Generate more of these at: https://coolors.co/313715-d16014
