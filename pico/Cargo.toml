@@ -20,6 +20,8 @@ rp-pico = "0.9"
 rp2040-boot2 = "0.3"
 rp2040-hal = { version="0.11", features=["rt", "critical-section-impl"] }
 
+bytemuck = { version = "1.21", features = ["derive", "min_const_generics"] }
+
 [[bin]]
 name = "pico"
 path = "src/pico.rs"

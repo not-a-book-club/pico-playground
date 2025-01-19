@@ -16,27 +16,18 @@ use rp_pico::Pins;
 use rand::{rngs::SmallRng, RngCore, SeedableRng};
 use simulations::Life;
 
+mod image;
+use image::*;
+
 #[global_allocator]
 static HEAP: Heap = Heap::empty();
 
-const fn to_rgb565(color: u32) -> u16 {
-    #![allow(clippy::identity_op)]
-    const fn scale_from_8_bits(n: u8, bits: u32) -> u16 {
-        ((n as f32) / 255. * ((1 << bits) - 1) as f32) as u16
-    }
-    let b = scale_from_8_bits(((color >> 0) & 0xff) as u8, 5);
-    let g = scale_from_8_bits(((color >> 8) & 0xff) as u8, 6);
-    let r = scale_from_8_bits(((color >> 16) & 0xff) as u8, 5);
+pub const AOC_BLUE: Rgb565 = Rgb565::from_rgb888(0x0f_0f_23);
+pub const AOC_GOLD: Rgb565 = Rgb565::from_rgb888(0xff_ff_66);
+pub const OHNO_PINK: Rgb565 = Rgb565::new(0xF8_1F);
 
-    (b << 0) | (g << 5) | (r << (5 + 6))
-}
-
-pub const AOC_BLUE: u16 = to_rgb565(0x0f_0f_23);
-pub const AOC_GOLD: u16 = to_rgb565(0xff_ff_66);
-pub const OHNO_PINK: u16 = 0xF8_1F;
-
-const WIDTH: u8 = 240;
-const HEIGHT: u8 = 240;
+const WIDTH: u16 = 240;
+const HEIGHT: u16 = 240;
 
 #[rp_pico::entry]
 fn main() -> ! {
@@ -45,7 +36,8 @@ fn main() -> ! {
         #![allow(static_mut_refs)]
         use core::mem::MaybeUninit;
 
-        const HEAP_SIZE: usize = 10 * 1024;
+        // NOTE: The rp2040 has 264 kB of on-chip SRAM
+        const HEAP_SIZE: usize = 132 * 1024;
         static mut HEAP_MEM: [MaybeUninit<u8>; HEAP_SIZE] = [MaybeUninit::uninit(); HEAP_SIZE];
 
         unsafe {
@@ -160,7 +152,9 @@ fn main() -> ! {
 
     init_display(&mut dc, &mut cs, &mut spi);
 
-    let mut framebuffer = [[OHNO_PINK.to_be_bytes(); WIDTH as usize]; HEIGHT as usize];
+    let mut framebuffer = Image::new(WIDTH, HEIGHT);
+    present(&mut dc, &mut cs, &mut spi, &framebuffer);
+
     let palette = [AOC_BLUE, AOC_GOLD];
 
     loop {
@@ -174,24 +168,18 @@ fn main() -> ! {
         //     }
         // }
 
-        // sprinkle chaos
-        for _ in 0..10 {
-            let x = (rng.next_u32() as i32) % life.width();
-            let y = (rng.next_u32() as i32) % life.height();
-            life.set(x, y, life.get(x, y) ^ true);
-        }
-
         let n_updated = life.step();
         if n_updated != 0 {
             for y in 0..life.height() {
                 for x in 0..life.width() {
                     let is_alive = life.get(x, y);
+
+                    // Write a 4x4 big pixel
                     for dy in 0..4 {
-                        let y = 4 * y + dy;
+                        let y = 4 * (y as u16) + dy;
                         for dx in 0..4 {
-                            let x = 4 * x + dx;
-                            framebuffer[y as usize][x as usize] =
-                                palette[is_alive as usize].to_be_bytes();
+                            let x = 4 * (x as u16) + dx;
+                            framebuffer[(x, y)] = palette[is_alive as usize];
                         }
                     }
                 }
@@ -202,7 +190,7 @@ fn main() -> ! {
         present(&mut dc, &mut cs, &mut spi, &framebuffer);
 
         led.set_low().unwrap();
-        delay.delay_ms(50);
+        delay.delay_ms(10);
     }
 }
 
@@ -367,7 +355,7 @@ fn clear_to(
             hal::gpio::Pin<hal::gpio::bank0::Gpio10, hal::gpio::FunctionSpi, hal::gpio::PullDown>,
         ),
     >,
-    color: u16,
+    color: Rgb565,
 ) {
     {
         // LCD_1IN3_SetWindows(0, 0, LCD_1IN3.WIDTH, LCD_1IN3.HEIGHT);
@@ -379,13 +367,13 @@ fn clear_to(
             send_u8(dc, cs, spi, 0x00);
             send_u8(dc, cs, spi, 0);
             send_u8(dc, cs, spi, 0x00);
-            send_u8(dc, cs, spi, WIDTH - 1);
+            send_u8(dc, cs, spi, WIDTH as u8 - 1);
 
             // Set x coordinates
             send_u8(dc, cs, spi, 0x00);
             send_u8(dc, cs, spi, 0);
             send_u8(dc, cs, spi, 0x00);
-            send_u8(dc, cs, spi, HEIGHT - 1);
+            send_u8(dc, cs, spi, HEIGHT as u8 - 1);
 
             send_cmd(dc, cs, spi, 0x2C);
         }
@@ -396,9 +384,10 @@ fn clear_to(
             cs.set_low().unwrap();
 
             // NOTE: We need each 16-bit word to be written Big Endian!
-            let buf = [color.to_be_bytes(); WIDTH as usize];
+            let buf = [color; WIDTH as usize];
+
             for _ in 0..HEIGHT {
-                spi.write(buf.as_flattened()).unwrap();
+                spi.write(bytemuck::bytes_of(&buf)).unwrap();
             }
 
             cs.set_high().unwrap();
@@ -420,7 +409,7 @@ fn present(
             hal::gpio::Pin<hal::gpio::bank0::Gpio10, hal::gpio::FunctionSpi, hal::gpio::PullDown>,
         ),
     >,
-    buf: &[[[u8; 2]; WIDTH as usize]; HEIGHT as usize],
+    buf: &Image,
 ) {
     {
         // LCD_1IN3_SetWindows(0, 0, LCD_1IN3.WIDTH, LCD_1IN3.HEIGHT);
@@ -432,13 +421,13 @@ fn present(
             send_u8(dc, cs, spi, 0x00);
             send_u8(dc, cs, spi, 0);
             send_u8(dc, cs, spi, 0x00);
-            send_u8(dc, cs, spi, WIDTH - 1);
+            send_u8(dc, cs, spi, WIDTH as u8 - 1);
 
             // Set x coordinates
             send_u8(dc, cs, spi, 0x00);
             send_u8(dc, cs, spi, 0);
             send_u8(dc, cs, spi, 0x00);
-            send_u8(dc, cs, spi, HEIGHT - 1);
+            send_u8(dc, cs, spi, HEIGHT as u8 - 1);
 
             send_cmd(dc, cs, spi, 0x2C);
         }
@@ -448,7 +437,7 @@ fn present(
             dc.set_high().unwrap();
             cs.set_low().unwrap();
 
-            spi.write(buf.as_flattened().as_flattened()).unwrap();
+            spi.write(buf.as_bytes()).unwrap();
 
             cs.set_high().unwrap();
         }

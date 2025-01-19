@@ -11,8 +11,8 @@ pub struct Life {
     // TODO: I think it's faster to store this in the object rather than each call into step, but need to benchmark
     shadow: [[u8; (MAX_COLS + 7) / 8]; MAX_ROWS],
 
-    width: i32,
-    height: i32,
+    width: i16,
+    height: i16,
 }
 
 /// Basic Usage
@@ -31,18 +31,18 @@ impl Life {
         Self {
             cells: [[0; (MAX_COLS + 7) / 8]; MAX_ROWS],
             shadow: [[0; (MAX_COLS + 7) / 8]; MAX_ROWS],
-            width: width as i32,
-            height: height as i32,
+            width: width as i16,
+            height: height as i16,
         }
     }
 
     /// The width of the simulation
-    pub fn width(&self) -> i32 {
+    pub fn width(&self) -> i16 {
         self.width
     }
 
     /// The height of the simulation
-    pub fn height(&self) -> i32 {
+    pub fn height(&self) -> i16 {
         self.height
     }
 
@@ -50,7 +50,7 @@ impl Life {
     ///
     /// Out of bounds access wrap around.
     #[track_caller]
-    pub fn get(&self, x: i32, y: i32) -> bool {
+    pub fn get(&self, x: i16, y: i16) -> bool {
         let x = ((x + self.width()) % self.width()) as usize;
         let y = ((y + self.height()) % self.height()) as usize;
 
@@ -84,7 +84,7 @@ impl Life {
     /// # }
     /// ```
     #[track_caller]
-    pub fn set(&mut self, x: i32, y: i32, is_alive: bool) -> bool {
+    pub fn set(&mut self, x: i16, y: i16, is_alive: bool) -> bool {
         let x = ((x + self.width()) % self.width()) as usize;
         let y = ((y + self.height()) % self.height()) as usize;
 
@@ -107,7 +107,7 @@ impl Life {
     ///
     /// This is identical to [`set()`](Life::set) except it operates on [`shadow`](Life::shadow).
     #[track_caller]
-    fn set_shadow(&mut self, x: i32, y: i32, is_alive: bool) -> bool {
+    fn set_shadow(&mut self, x: i16, y: i16, is_alive: bool) -> bool {
         let x = ((x + self.width()) % self.width()) as usize;
         let y = ((y + self.height()) % self.height()) as usize;
 
@@ -193,7 +193,7 @@ impl Life {
     ///
     /// Where the top left is `(x, y)`.
     #[track_caller]
-    pub fn write_right_glider(&mut self, x: i32, y: i32) {
+    pub fn write_right_glider(&mut self, x: i16, y: i16) {
         self.set(x + 0, y + 0, false);
         self.set(x + 1, y + 0, true);
         self.set(x + 2, y + 0, false);
@@ -219,7 +219,7 @@ impl Life {
     ///
     /// Where the top left is `(x, y)`.
     #[track_caller]
-    pub fn write_left_glider(&mut self, x: i32, y: i32) {
+    pub fn write_left_glider(&mut self, x: i16, y: i16) {
         self.set(x + 0, y + 0, false);
         self.set(x + 1, y + 0, true);
         self.set(x + 2, y + 0, false);
