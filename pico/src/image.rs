@@ -56,6 +56,10 @@ impl Image {
         bytemuck::cast_slice(&self.buf)
     }
 
+    pub fn fill(&mut self, color: Rgb565) {
+        self.buf.fill(color);
+    }
+
     fn raw_idx(&self, x: u16, y: u16) -> Option<usize> {
         if x < self.width() && y < self.height() {
             let idx = x + y * self.width();
