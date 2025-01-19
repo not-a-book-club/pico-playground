@@ -70,7 +70,7 @@ impl Life {
     ///
     /// # Example
     /// ```rust
-    /// # use life::Life;
+    /// # use simulations::Life;
     /// # fn main() {
     /// let mut life = Life::new(5, 5);
     ///
@@ -180,7 +180,6 @@ impl Life {
 
     /// Set all cells to **alive** or **dead** using the provided rng.
     pub fn clear_random(&mut self, rng: &mut impl rand::Rng) {
-        self.clear();
         let bytes: &mut [u8] = self.cells.as_flattened_mut();
 
         for chunk in bytes.chunks_mut(4) {

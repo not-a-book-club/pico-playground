@@ -108,6 +108,14 @@ impl Elementry {
     pub fn clear_alive(&mut self) {
         self.cells.fill(0xff);
     }
+
+    /// Set all cells to **alive** or **dead** using the provided rng.
+    pub fn clear_random(&mut self, rng: &mut impl rand::Rng) {
+        for chunk in self.cells.chunks_mut(4) {
+            let rand_bytes = rng.next_u32().to_le_bytes();
+            chunk.copy_from_slice(&rand_bytes[..chunk.len()]);
+        }
+    }
 }
 
 /// `std`-only functions
