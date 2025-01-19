@@ -4,9 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-simulations = { path = "../simulations", default-features = false }
-rand = { version = "0.8", features = ["small_rng"], default-features = false }
-
+# Embedded Things
 cortex-m = "0.7"
 cortex-m-rt = "0.7"
 defmt = "0.3"
@@ -14,12 +12,21 @@ defmt-rtt = "0.4"
 embedded-alloc = "0.6"
 embedded-graphics = "0.8"
 embedded-hal = "1"
+embedded-hal-bus = "0.2"
 embedded-time = "0.12"
 panic-probe = "0.3"
+# We aren't using this, but embedded-hal-bus 0.2 unconditionally requires atomics.
+# Should be fixed in e-h-b 0.3 via https://github.com/rust-embedded/embedded-hal/pull/607
+portable-atomic = {version = "1.7", features = ["critical-section"]}
 rp-pico = "0.9"
 rp2040-boot2 = "0.3"
 rp2040-hal = { version="0.11", features=["rt", "critical-section-impl"] }
 
+# Local deps
+simulations = { path = "../simulations", default-features = false }
+rand = { version = "0.8", features = ["small_rng"], default-features = false }
+
+# Everything else
 bytemuck = { version = "1.21", features = ["derive", "min_const_generics"] }
 
 [[bin]]

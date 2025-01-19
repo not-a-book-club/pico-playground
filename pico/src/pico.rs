@@ -1,33 +1,32 @@
 #![no_std]
 #![no_main]
-#![allow(clippy::type_complexity)]
 
+// Runtime things
 extern crate alloc;
 use defmt_rtt as _;
 use panic_probe as _;
 
+// Embedded things
 use cortex_m::delay::Delay;
-use embedded_alloc::LlffHeap as Heap;
-use embedded_hal::{digital::OutputPin, pwm::SetDutyCycle, spi::SpiBus};
+use embedded_hal::digital::OutputPin;
+use embedded_hal::pwm::SetDutyCycle;
+use embedded_hal_bus::spi::ExclusiveDevice;
+use hal::fugit::*;
+use hal::prelude::*;
 use rp_pico::hal;
-use rp_pico::hal::{fugit::*, gpio, pac, prelude::*, Spi};
-use rp_pico::Pins;
 
 use rand::{rngs::SmallRng, SeedableRng};
 use simulations::Life;
 
 mod image;
-use image::*;
+use image::{Image, Rgb565};
 
-#[global_allocator]
-static HEAP: Heap = Heap::empty();
+mod lcd;
+use lcd::LcdDriver;
 
 pub const AOC_BLUE: Rgb565 = Rgb565::from_rgb888(0x0f_0f_23);
 pub const AOC_GOLD: Rgb565 = Rgb565::from_rgb888(0xff_ff_66);
 pub const OHNO_PINK: Rgb565 = Rgb565::new(0xF8_1F);
-
-const WIDTH: u16 = 240;
-const HEIGHT: u16 = 240;
 
 #[rp_pico::entry]
 fn main() -> ! {
@@ -35,6 +34,10 @@ fn main() -> ! {
     {
         #![allow(static_mut_refs)]
         use core::mem::MaybeUninit;
+        use embedded_alloc::LlffHeap as Heap;
+
+        #[global_allocator]
+        static HEAP: Heap = Heap::empty();
 
         // NOTE: The rp2040 has 264 kB of on-chip SRAM
         const HEAP_SIZE: usize = 132 * 1024;
@@ -46,8 +49,8 @@ fn main() -> ! {
     }
 
     // Singleton objects
-    let mut pac = pac::Peripherals::take().unwrap();
-    let core = pac::CorePeripherals::take().unwrap();
+    let mut pac = hal::pac::Peripherals::take().unwrap();
+    let core = hal::pac::CorePeripherals::take().unwrap();
 
     // Watchdog timer - needed by the clock setup code
     let mut watchdog = hal::Watchdog::new(pac.WATCHDOG);
@@ -66,24 +69,19 @@ fn main() -> ! {
     .ok()
     .unwrap();
 
-    // The delay object lets us wait for specified amounts of time (in milliseconds)
+    // The delay object lets us wait for specified amounts of time
     let mut delay = Delay::new(core.SYST, clocks.system_clock.freq().to_Hz());
 
     // The single-cycle I/O block controls our GPIO pins
     let sio = hal::Sio::new(pac.SIO);
 
     // Set the pins up according to their function on this particular board
-    let pins = Pins::new(
+    let pins = rp_pico::Pins::new(
         pac.IO_BANK0,
         pac.PADS_BANK0,
         sio.gpio_bank0,
         &mut pac.RESETS,
     );
-
-    let mut life = Life::new(WIDTH as usize / 4, HEIGHT as usize / 4);
-    let mut rng = SmallRng::from_seed(core::array::from_fn(|_| 7));
-
-    life.clear_random(&mut rng);
 
     // GPIOs:
     //      ePaper Pico/Pico2  Description
@@ -104,63 +102,75 @@ fn main() -> ! {
     //      LEFT   GP16        Joystick-left
     //      RIGHT  GP20        Joystick-right
     //      CTRL   GP3         Joystick-center
-    //
+    let mut rst = pins.gpio12.into_push_pull_output();
+    let dc = pins.gpio8.into_push_pull_output();
+    let cs = pins.gpio9.into_push_pull_output();
+    let _bl = pins
+        .gpio13
+        .into_push_pull_output_in_state(hal::gpio::PinState::High);
+
+    // LED on the board - we use this mostly for proof-of-life
     let mut led = pins.led.into_push_pull_output();
 
-    let mut rst = pins.gpio12.into_push_pull_output();
-    let mut dc = pins.gpio8.into_push_pull_output();
-    let mut cs = pins.gpio9.into_push_pull_output();
-
-    let sclk = pins.gpio10.into_function::<gpio::FunctionSpi>();
-    let mosi = pins.gpio11.into_function::<gpio::FunctionSpi>();
+    let sclk = pins.gpio10.into_function::<hal::gpio::FunctionSpi>();
+    let mosi = pins.gpio11.into_function::<hal::gpio::FunctionSpi>();
     let layout = (mosi, sclk);
-    let mut spi = Spi::<_, _, _, 8>::new(pac.SPI1, layout).init(
+    let spi_bus = hal::Spi::<_, _, _, 8>::new(pac.SPI1, layout);
+    let spi_bus = spi_bus.init(
         &mut pac.RESETS,
-        125_000_000u32.Hz(),
-        16_000_000u32.Hz(),
+        clocks.peripheral_clock.freq(),
+        16_u32.MHz(),
         embedded_hal::spi::MODE_0,
     );
+    let timer = hal::Timer::new(pac.TIMER, &mut pac.RESETS, &clocks);
+    let spi_dev = ExclusiveDevice::new(spi_bus, cs, timer).unwrap();
 
-    // Set PWM
+    // Need to reset the display before initializing it
+    // TODO: Explain/cite the magic here
     {
-        let pwm_slices = hal::pwm::Slices::new(pac.PWM, &mut pac.RESETS);
+        // Set PWM
+        {
+            let pwm_slices = hal::pwm::Slices::new(pac.PWM, &mut pac.RESETS);
 
-        // slicenum from bl pin
-        let mut pwm = pwm_slices.pwm6;
-        pwm.set_ph_correct();
+            // slicenum from bl pin
+            let mut pwm = pwm_slices.pwm6;
+            pwm.set_ph_correct();
 
-        // chan B to 90
-        pwm.channel_b.set_duty_cycle_fraction(9, 10).unwrap();
-        pwm.enable();
+            // chan B to 90
+            pwm.channel_b.set_duty_cycle_fraction(9, 10).unwrap();
+            pwm.enable();
+        }
+        // Reset
+        {
+            rst.set_high().unwrap();
+            delay.delay_ms(100);
+
+            rst.set_low().unwrap();
+            delay.delay_ms(100);
+
+            rst.set_high().unwrap();
+            delay.delay_ms(100);
+        }
     }
-
-    // Reset
-    {
-        rst.set_high().unwrap();
-        delay.delay_ms(100);
-
-        rst.set_low().unwrap();
-        delay.delay_ms(100);
-
-        rst.set_high().unwrap();
-        delay.delay_ms(100);
-    }
-
-    init_display(&mut dc, &mut cs, &mut spi);
-
-    let mut framebuffer = Image::new(WIDTH, HEIGHT);
-    present(&mut dc, &mut cs, &mut spi, &framebuffer);
+    let mut display = LcdDriver::new(spi_dev, dc);
 
     // Generate more of these at: https://coolors.co/313715-d16014
     // Pick two and hit Space to generate random pairs until you like what you see
     let palettes = [
+        // [Background, Foreground]
         [AOC_BLUE, AOC_GOLD],
         // TODO: These pallets suck. Way too low contrast.
-        [Rgb565::from_rgb888(0x7B287D), Rgb565::from_rgb888(0x330C2F)],
+        [Rgb565::from_rgb888(0x1B081D), Rgb565::from_rgb888(0x830C8F)],
         [Rgb565::from_rgb888(0xFFFBFE), Rgb565::from_rgb888(0x7A7D7D)],
         [Rgb565::from_rgb888(0xD16014), Rgb565::from_rgb888(0x313715)],
     ];
     let mut palette = 0;
+
+    let mut framebuffer = Image::new(lcd::WIDTH, lcd::HEIGHT);
+
+    let mut life = Life::new(lcd::WIDTH as usize / 4, lcd::HEIGHT as usize / 4);
+    let mut rng = SmallRng::from_seed(core::array::from_fn(|_| 7));
+    life.clear_random(&mut rng);
 
     // Age of the current simulation in steps
     let mut sim_age = 0;
@@ -168,6 +178,14 @@ fn main() -> ! {
     let per_step_delay_ms = 100;
 
     loop {
+        if sim_age > 0 {
+            if sim_age % 20 == 0 {
+                display.idle_mode_on();
+            } else if sim_age % 20 == 10 {
+                display.idle_mode_off();
+            }
+        }
+
         led.set_high().unwrap();
 
         // if /* button A is pressed */ {
@@ -204,264 +222,10 @@ fn main() -> ! {
             }
         }
 
-        // clear_to(&mut dc, &mut cs, &mut spi, 0xF81F_u16);
-        present(&mut dc, &mut cs, &mut spi, &framebuffer);
+        display.present(&framebuffer);
         sim_age += 1;
 
         led.set_low().unwrap();
         delay.delay_ms(per_step_delay_ms);
-    }
-}
-
-fn init_display(
-    dc: &mut gpio::Pin<gpio::bank0::Gpio8, gpio::FunctionSio<gpio::SioOutput>, gpio::PullDown>,
-    cs: &mut gpio::Pin<gpio::bank0::Gpio9, gpio::FunctionSio<gpio::SioOutput>, gpio::PullDown>,
-    spi: &mut hal::Spi<
-        hal::spi::Enabled,
-        pac::SPI1,
-        (
-            hal::gpio::Pin<hal::gpio::bank0::Gpio11, hal::gpio::FunctionSpi, hal::gpio::PullDown>,
-            hal::gpio::Pin<hal::gpio::bank0::Gpio10, hal::gpio::FunctionSpi, hal::gpio::PullDown>,
-        ),
-    >,
-) {
-    // Set resolution & scanning method of the screen
-    // const HORIZONTAL: u8 = 0;
-    {
-        let memory_access_reg = 0x70;
-        // Set the read / write scan direction of the frame memory
-        send_cmd(dc, cs, spi, 0x36); //MX, MY, RGB mode
-        send_u8(dc, cs, spi, memory_access_reg); //0x08 set RGB
-    }
-
-    // Init Reg
-    {
-        send_cmd(dc, cs, spi, 0x3A);
-        send_u8(dc, cs, spi, 0x05);
-
-        send_cmd(dc, cs, spi, 0xB2);
-        send_u8(dc, cs, spi, 0x0C);
-        send_u8(dc, cs, spi, 0x0C);
-        send_u8(dc, cs, spi, 0x00);
-        send_u8(dc, cs, spi, 0x33);
-        send_u8(dc, cs, spi, 0x33);
-
-        // Gate Control
-        send_cmd(dc, cs, spi, 0xB7);
-        send_u8(dc, cs, spi, 0x35);
-
-        // VCOM Setting
-        send_cmd(dc, cs, spi, 0xBB);
-        send_u8(dc, cs, spi, 0x19);
-
-        // LCM Control
-        send_cmd(dc, cs, spi, 0xC0);
-        send_u8(dc, cs, spi, 0x2C);
-
-        // VDV and VRH Command Enable
-        send_cmd(dc, cs, spi, 0xC2);
-        send_u8(dc, cs, spi, 0x01);
-
-        // VRH Set
-        send_cmd(dc, cs, spi, 0xC3);
-        send_u8(dc, cs, spi, 0x12);
-
-        // VDV Set
-        send_cmd(dc, cs, spi, 0xC4);
-        send_u8(dc, cs, spi, 0x20);
-
-        // Frame Rate Control in Normal Mode
-        send_cmd(dc, cs, spi, 0xC6);
-        send_u8(dc, cs, spi, 0x0F);
-
-        // 8Power Control 1
-        send_cmd(dc, cs, spi, 0xD0);
-        send_u8(dc, cs, spi, 0xA4);
-        send_u8(dc, cs, spi, 0xA1);
-
-        // Positive Voltage Gamma Control
-        send_cmd(dc, cs, spi, 0xE0);
-        send_u8(dc, cs, spi, 0xD0);
-        send_u8(dc, cs, spi, 0x04);
-        send_u8(dc, cs, spi, 0x0D);
-        send_u8(dc, cs, spi, 0x11);
-        send_u8(dc, cs, spi, 0x13);
-        send_u8(dc, cs, spi, 0x2B);
-        send_u8(dc, cs, spi, 0x3F);
-        send_u8(dc, cs, spi, 0x54);
-        send_u8(dc, cs, spi, 0x4C);
-        send_u8(dc, cs, spi, 0x18);
-        send_u8(dc, cs, spi, 0x0D);
-        send_u8(dc, cs, spi, 0x0B);
-        send_u8(dc, cs, spi, 0x1F);
-        send_u8(dc, cs, spi, 0x23);
-
-        // Negative Voltage Gamma Control
-        send_cmd(dc, cs, spi, 0xE1);
-        send_u8(dc, cs, spi, 0xD0);
-        send_u8(dc, cs, spi, 0x04);
-        send_u8(dc, cs, spi, 0x0C);
-        send_u8(dc, cs, spi, 0x11);
-        send_u8(dc, cs, spi, 0x13);
-        send_u8(dc, cs, spi, 0x2C);
-        send_u8(dc, cs, spi, 0x3F);
-        send_u8(dc, cs, spi, 0x44);
-        send_u8(dc, cs, spi, 0x51);
-        send_u8(dc, cs, spi, 0x2F);
-        send_u8(dc, cs, spi, 0x1F);
-        send_u8(dc, cs, spi, 0x1F);
-        send_u8(dc, cs, spi, 0x20);
-        send_u8(dc, cs, spi, 0x23);
-
-        // Display Inversion On
-        send_cmd(dc, cs, spi, 0x21);
-
-        // Sleep Out
-        send_cmd(dc, cs, spi, 0x11);
-
-        // Display On
-        send_cmd(dc, cs, spi, 0x29);
-    }
-}
-
-fn send_cmd(
-    dc: &mut gpio::Pin<gpio::bank0::Gpio8, gpio::FunctionSio<gpio::SioOutput>, gpio::PullDown>,
-    cs: &mut gpio::Pin<gpio::bank0::Gpio9, gpio::FunctionSio<gpio::SioOutput>, gpio::PullDown>,
-    spi: &mut hal::Spi<
-        hal::spi::Enabled,
-        pac::SPI1,
-        (
-            hal::gpio::Pin<hal::gpio::bank0::Gpio11, hal::gpio::FunctionSpi, hal::gpio::PullDown>,
-            hal::gpio::Pin<hal::gpio::bank0::Gpio10, hal::gpio::FunctionSpi, hal::gpio::PullDown>,
-        ),
-    >,
-    reg: u8,
-) {
-    dc.set_low().unwrap();
-    cs.set_low().unwrap();
-    spi.write(&[reg]).unwrap();
-    cs.set_high().unwrap();
-}
-
-fn send_u8(
-    dc: &mut gpio::Pin<gpio::bank0::Gpio8, gpio::FunctionSio<gpio::SioOutput>, gpio::PullDown>,
-    cs: &mut gpio::Pin<gpio::bank0::Gpio9, gpio::FunctionSio<gpio::SioOutput>, gpio::PullDown>,
-    spi: &mut hal::Spi<
-        hal::spi::Enabled,
-        pac::SPI1,
-        (
-            hal::gpio::Pin<hal::gpio::bank0::Gpio11, hal::gpio::FunctionSpi, hal::gpio::PullDown>,
-            hal::gpio::Pin<hal::gpio::bank0::Gpio10, hal::gpio::FunctionSpi, hal::gpio::PullDown>,
-        ),
-    >,
-    value: u8,
-) {
-    dc.set_high().unwrap();
-    cs.set_low().unwrap();
-    spi.write(&value.to_ne_bytes()).unwrap();
-    cs.set_high().unwrap();
-}
-
-#[allow(dead_code)]
-fn clear_to(
-    dc: &mut gpio::Pin<gpio::bank0::Gpio8, gpio::FunctionSio<gpio::SioOutput>, gpio::PullDown>,
-    cs: &mut gpio::Pin<gpio::bank0::Gpio9, gpio::FunctionSio<gpio::SioOutput>, gpio::PullDown>,
-    spi: &mut hal::Spi<
-        hal::spi::Enabled,
-        pac::SPI1,
-        (
-            hal::gpio::Pin<hal::gpio::bank0::Gpio11, hal::gpio::FunctionSpi, hal::gpio::PullDown>,
-            hal::gpio::Pin<hal::gpio::bank0::Gpio10, hal::gpio::FunctionSpi, hal::gpio::PullDown>,
-        ),
-    >,
-    color: Rgb565,
-) {
-    {
-        // LCD_1IN3_SetWindows(0, 0, LCD_1IN3.WIDTH, LCD_1IN3.HEIGHT);
-        // Set Windows
-        {
-            send_cmd(dc, cs, spi, 0x2A);
-
-            // Set x coordinates
-            send_u8(dc, cs, spi, 0x00);
-            send_u8(dc, cs, spi, 0);
-            send_u8(dc, cs, spi, 0x00);
-            send_u8(dc, cs, spi, WIDTH as u8 - 1);
-
-            // Set x coordinates
-            send_u8(dc, cs, spi, 0x00);
-            send_u8(dc, cs, spi, 0);
-            send_u8(dc, cs, spi, 0x00);
-            send_u8(dc, cs, spi, HEIGHT as u8 - 1);
-
-            send_cmd(dc, cs, spi, 0x2C);
-        }
-
-        // Clear the display
-        {
-            dc.set_high().unwrap();
-            cs.set_low().unwrap();
-
-            // NOTE: We need each 16-bit word to be written Big Endian!
-            let buf = [color; WIDTH as usize];
-
-            for _ in 0..HEIGHT {
-                spi.write(bytemuck::bytes_of(&buf)).unwrap();
-            }
-
-            cs.set_high().unwrap();
-        }
-
-        // And Display the buffer?
-        send_cmd(dc, cs, spi, 0x29);
-    }
-}
-
-fn present(
-    dc: &mut gpio::Pin<gpio::bank0::Gpio8, gpio::FunctionSio<gpio::SioOutput>, gpio::PullDown>,
-    cs: &mut gpio::Pin<gpio::bank0::Gpio9, gpio::FunctionSio<gpio::SioOutput>, gpio::PullDown>,
-    spi: &mut hal::Spi<
-        hal::spi::Enabled,
-        pac::SPI1,
-        (
-            hal::gpio::Pin<hal::gpio::bank0::Gpio11, hal::gpio::FunctionSpi, hal::gpio::PullDown>,
-            hal::gpio::Pin<hal::gpio::bank0::Gpio10, hal::gpio::FunctionSpi, hal::gpio::PullDown>,
-        ),
-    >,
-    buf: &Image,
-) {
-    {
-        // LCD_1IN3_SetWindows(0, 0, LCD_1IN3.WIDTH, LCD_1IN3.HEIGHT);
-        // Set Windows
-        {
-            send_cmd(dc, cs, spi, 0x2A);
-
-            // Set x coordinates
-            send_u8(dc, cs, spi, 0x00);
-            send_u8(dc, cs, spi, 0);
-            send_u8(dc, cs, spi, 0x00);
-            send_u8(dc, cs, spi, WIDTH as u8 - 1);
-
-            // Set x coordinates
-            send_u8(dc, cs, spi, 0x00);
-            send_u8(dc, cs, spi, 0);
-            send_u8(dc, cs, spi, 0x00);
-            send_u8(dc, cs, spi, HEIGHT as u8 - 1);
-
-            send_cmd(dc, cs, spi, 0x2C);
-        }
-
-        // Clear the display
-        {
-            dc.set_high().unwrap();
-            cs.set_low().unwrap();
-
-            spi.write(buf.as_bytes()).unwrap();
-
-            cs.set_high().unwrap();
-        }
-
-        // And Display the buffer?
-        send_cmd(dc, cs, spi, 0x29);
     }
 }

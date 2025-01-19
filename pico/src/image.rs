@@ -38,6 +38,7 @@ pub struct Image {
     height: u16,
 }
 
+#[allow(dead_code)]
 impl Image {
     pub fn new(width: u16, height: u16) -> Self {
         let buf = vec![OHNO_PINK; (width * height) as usize];
