@@ -111,9 +111,16 @@ fn main() -> ! {
         .into_push_pull_output_in_state(hal::gpio::PinState::High);
 
     let mut btn_a = pins.gpio15.into_pull_up_input();
-    let mut _btn_b = pins.gpio17.into_pull_up_input();
+    let mut btn_b = pins.gpio17.into_pull_up_input();
     let mut _btn_x = pins.gpio19.into_pull_up_input();
     let mut btn_y = pins.gpio21.into_pull_up_input();
+
+    // Note: Center is the middle joy thing and is easy to hit while using the directions
+    let mut _joy_center = pins.gpio3.into_pull_up_input();
+    let mut _joy_up = pins.gpio2.into_pull_up_input();
+    let mut _joy_down = pins.gpio18.into_pull_up_input();
+    let mut _joy_left = pins.gpio16.into_pull_up_input();
+    let mut _joy_right = pins.gpio20.into_pull_up_input();
 
     // LED on the board - we use this mostly for proof-of-life
     let mut led = pins.led.into_push_pull_output();
@@ -178,8 +185,8 @@ fn main() -> ! {
     let mut framebuffer = Image::new(lcd::WIDTH, lcd::HEIGHT);
     let mut rng = SmallRng::from_seed(core::array::from_fn(|_| 17));
 
-    // Hold down A to go into the elementary sim
-    let do_life = btn_a.is_high().unwrap();
+    // Hold down Y to go into the elementary sim
+    let do_life = btn_y.is_high().unwrap();
     if do_life {
         let mut sim = Life::new(lcd::WIDTH as usize / 4, lcd::HEIGHT as usize / 4);
         sim.clear_random(&mut rng);
@@ -187,15 +194,24 @@ fn main() -> ! {
         loop {
             led.set_high().unwrap();
 
-            // Press Y to cycle palettes
-            if btn_y.is_low().unwrap() {
-                palette += 1;
-                palette %= palettes.len();
-            }
+            {
+                let a = btn_a.is_low().unwrap();
+                let b = btn_b.is_low().unwrap();
+                match (a, b) {
+                    // Reset back to BOOTSEL so that the next cargo-run updates our code
+                    (true, true) => hal::rom_data::reset_to_usb_boot(0, 0),
 
-            // Press A to clear to random
-            if btn_a.is_low().unwrap() {
-                sim.clear_random(&mut rng);
+                    // Press A to clear to random
+                    (true, _) => sim.clear_random(&mut rng),
+
+                    // Press B to cycle palettes
+                    (_, true) => {
+                        palette += 1;
+                        palette %= palettes.len();
+                    }
+
+                    _ => {}
+                }
             }
 
             let n_updated = sim.step();
@@ -240,13 +256,27 @@ fn main() -> ! {
         loop {
             // Each column is a snapshot of the simulation
             for x in (0..lcd::WIDTH).step_by(scale as usize).rev() {
-                display.vertical_scroll_update(x);
+                {
+                    let a = btn_a.is_low().unwrap();
+                    let b = btn_b.is_low().unwrap();
+                    match (a, b) {
+                        // Reset back to BOOTSEL so that the next cargo-run updates our code
+                        (true, true) => hal::rom_data::reset_to_usb_boot(0, 0),
 
-                if btn_y.is_low().unwrap() {
-                    palette += 1;
-                    palette %= palettes.len();
+                        // Press A to clear to random
+                        (true, _) => sim.clear_random(&mut rng),
+
+                        // Press B to cycle palettes
+                        (_, true) => {
+                            palette += 1;
+                            palette %= palettes.len();
+                        }
+
+                        _ => {}
+                    }
                 }
 
+                display.vertical_scroll_update(x);
                 // Update the sim
                 sim.step();
 
