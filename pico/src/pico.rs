@@ -15,6 +15,10 @@ use hal::fugit::*;
 use hal::prelude::*;
 use rp_pico::hal;
 
+// Import all 4 even if we aren't using them at this moment
+#[allow(unused_imports)]
+use defmt::{debug, error, info, warn};
+
 use rand::{rngs::SmallRng, SeedableRng};
 use simulations::Elementry;
 use simulations::Life;
@@ -166,9 +170,30 @@ fn main() -> ! {
         }
     }
 
+    // Log some interesting data from ROM
+    unsafe {
+        use hal::rom_data as rom;
+
+        info!("\"{}\"", rom::copyright_string());
+        info!("rom_version_number: {}", rom::rom_version_number());
+
+        let fplib_start = rom::fplib_start();
+        let fplib_end = rom::fplib_end();
+        info!(
+            "fplib: {} bytes [0x{:08x}, 0x{:08x}]",
+            fplib_start.offset_from(fplib_end),
+            fplib_start,
+            fplib_end,
+        );
+
+        info!("bootrom git rev: {}", rom::git_revision());
+    }
+
     // TODO: Read frame data before we init, it's a source of RNG!
 
     let mut display = LcdDriver::new(spi_dev, dc);
+    let display_id = display.id();
+    info!("Display info: {:?}", display_id);
 
     // Generate more of these at: https://coolors.co/313715-d16014
     // Pick two and hit Space to generate random pairs until you like what you see
@@ -182,7 +207,7 @@ fn main() -> ! {
     ];
     let mut palette = 0;
 
-    let mut framebuffer = Image::new(lcd::WIDTH, lcd::HEIGHT);
+    let mut image = Image::new(lcd::WIDTH, lcd::HEIGHT);
     let mut rng = SmallRng::from_seed(core::array::from_fn(|_| 17));
 
     // Hold down Y to go into the elementary sim
@@ -225,14 +250,14 @@ fn main() -> ! {
                             let yy = 4 * (y as u16) + dy;
                             for dx in 0..4 {
                                 let xx = 4 * (x as u16) + dx;
-                                framebuffer[(xx, yy)] = palettes[palette][is_alive as usize];
+                                image[(xx, yy)] = palettes[palette][is_alive as usize];
                             }
                         }
                     }
                 }
             }
 
-            display.present(&framebuffer);
+            display.present(&image);
 
             led.set_low().unwrap();
             delay.delay_ms(100);
@@ -247,8 +272,8 @@ fn main() -> ! {
 
         let scale = 3;
         let mut sim = Elementry::new(rule, (lcd::HEIGHT / scale) as usize);
-        sim.clear_random(&mut rng);
-        framebuffer.fill(palettes[palette][0]);
+        sim.set(sim.width() / 2, true);
+        image.fill(palettes[palette][0]);
 
         display.define_vertical_scroll_areas(0, 0);
 
@@ -287,14 +312,14 @@ fn main() -> ! {
                     // Write a scale by scale big pixel
                     for dx in 0..scale {
                         for dy in 0..scale {
-                            framebuffer[((x + dx), scale * y + dy)] =
+                            image[((x + dx), scale * y + dy)] =
                                 palettes[palette][is_alive as usize];
                         }
                     }
                 }
 
                 // Scroll and update the display with our new image
-                display.present(&framebuffer);
+                display.present(&image);
                 delay.delay_ms(10);
             }
         }

@@ -1,3 +1,4 @@
+use defmt::Format;
 use embedded_hal::digital::OutputPin;
 use embedded_hal::spi::{Operation, SpiDevice};
 
@@ -19,6 +20,14 @@ pub struct LcdDriver<Device, DataCmdPin> {
     dc: DataCmdPin,
 }
 
+/// Display identification information
+#[derive(Copy, Clone, Format, PartialEq, Eq, Default)]
+pub struct DisplayId {
+    pub manufacturer_id: u8,
+    pub version_id: u8,
+    pub module_id: u8,
+}
+
 #[allow(dead_code)]
 /// Basic usage of the LCD Display
 impl<Device, DataCmdPin> LcdDriver<Device, DataCmdPin>
@@ -35,6 +44,28 @@ where
         }
 
         this
+    }
+
+    /// Returns 24-bit display identification information
+    pub fn id(&mut self) -> DisplayId {
+        let mut buf = [0_u8; 4];
+
+        // RDDID (04h): Read Display ID
+        self.dc.set_low().unwrap();
+        self.dev.write(&[0x04]).unwrap();
+
+        self.dc.set_high().unwrap();
+        self.dev
+            .transaction(&mut [Operation::TransferInPlace(&mut buf)])
+            .unwrap();
+
+        let [_, manufacturer_id, version_id, module_id] = buf;
+
+        DisplayId {
+            manufacturer_id,
+            version_id,
+            module_id,
+        }
     }
 
     /// Scrolls the entire image with the given offset(?)
@@ -176,8 +207,8 @@ bitfield! {
     ///     D3      RGB     RGB/BGR Order
     ///     D2      MH      Display Data Latch Order
     /// ```
-    #[derive(Copy, Clone, PartialEq, Eq)]
-    struct MadCtl(u8) : Debug, FromStorage, IntoStorage {
+    #[derive(Copy, Clone, Format, PartialEq, Eq)]
+    struct MadCtl(u8) : FromStorage, IntoStorage {
         /// Page Address Order
         pub my: u8 @ 7..=7,
 
