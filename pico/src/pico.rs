@@ -16,6 +16,7 @@ use hal::prelude::*;
 use rp_pico::hal;
 
 use rand::{rngs::SmallRng, SeedableRng};
+use simulations::Elementry;
 use simulations::Life;
 
 mod image;
@@ -170,65 +171,110 @@ fn main() -> ! {
     let mut palette = 0;
 
     let mut framebuffer = Image::new(lcd::WIDTH, lcd::HEIGHT);
+    let mut rng = SmallRng::from_seed(core::array::from_fn(|_| 17));
 
-    let mut life = Life::new(lcd::WIDTH as usize / 4, lcd::HEIGHT as usize / 4);
-    let mut rng = SmallRng::from_seed(core::array::from_fn(|_| 7));
-    life.clear_random(&mut rng);
+    let do_life = false;
+    if do_life {
+        let mut life = Life::new(lcd::WIDTH as usize / 4, lcd::HEIGHT as usize / 4);
+        life.clear_random(&mut rng);
 
-    // Age of the current simulation in steps
-    let mut sim_age = 0;
-    // MS delay after each step to make sure we have a good framerate
-    let per_step_delay_ms = 100;
+        // Age of the current simulation in steps
+        let mut sim_age = 0;
+        // MS delay after each step to make sure we have a good framerate
+        let per_step_delay_ms = 100;
 
-    loop {
-        if sim_age > 0 {
-            if sim_age % 20 == 0 {
-                display.idle_mode_on();
-            } else if sim_age % 20 == 10 {
-                display.idle_mode_off();
+        loop {
+            if sim_age > 0 {
+                if sim_age % 20 == 0 {
+                    display.idle_mode_on();
+                } else if sim_age % 20 == 10 {
+                    display.idle_mode_off();
+                }
             }
-        }
 
-        led.set_high().unwrap();
+            led.set_high().unwrap();
 
-        // if /* button A is pressed */ {
-        //    life.clear_random(&mut rng);
-        // }
+            // if /* button A is pressed */ {
+            //    life.clear_random(&mut rng);
+            // }
 
-        // Simulations usually end in a looping and boring state, so periodically clear to random
-        if sim_age > {
-            (1000 / per_step_delay_ms) /* steps per second */ * 10 /* seconds */
-        } {
-            life.clear_random(&mut rng);
+            // Simulations usually end in a looping and boring state, so periodically clear to random
+            if sim_age > {
+                (1000 / per_step_delay_ms) /* steps per second */ * 10 /* seconds */
+            } {
+                life.clear_random(&mut rng);
 
-            sim_age = 0;
-            palette += 1;
-            palette %= palettes.len();
-        }
+                sim_age = 0;
+                palette += 1;
+                palette %= palettes.len();
+            }
 
-        let n_updated = life.step();
+            let n_updated = life.step();
 
-        if n_updated != 0 {
-            for y in 0..life.height() {
-                for x in 0..life.width() {
-                    let is_alive = life.get(x, y);
+            if n_updated != 0 {
+                for y in 0..life.height() {
+                    for x in 0..life.width() {
+                        let is_alive = life.get(x, y);
 
-                    // Write a 4x4 big pixel
-                    for dy in 0..4 {
-                        let y = 4 * (y as u16) + dy;
-                        for dx in 0..4 {
-                            let x = 4 * (x as u16) + dx;
-                            framebuffer[(x, y)] = palettes[palette][is_alive as usize];
+                        // Write a 4x4 big pixel
+                        for dy in 0..4 {
+                            let yy = 4 * (y as u16) + dy;
+                            for dx in 0..4 {
+                                let xx = 4 * (x as u16) + dx;
+                                framebuffer[(xx, yy)] = palettes[palette][is_alive as usize];
+                            }
                         }
                     }
                 }
             }
+
+            display.present(&framebuffer);
+            sim_age += 1;
+
+            led.set_low().unwrap();
+            delay.delay_ms(per_step_delay_ms);
         }
+    } else {
+        // let rule = 30;
+        // let rule = 45;
+        // let rule = 89;
+        let rule = 90;
+        // let rule = 110;
+        // let rule = 184;
 
-        display.present(&framebuffer);
-        sim_age += 1;
+        let scale = 3;
+        let mut sim = Elementry::new(rule, (lcd::HEIGHT / scale) as usize);
+        sim.clear_random(&mut rng);
+        framebuffer.fill(palettes[palette][0]);
 
-        led.set_low().unwrap();
-        delay.delay_ms(per_step_delay_ms);
+        display.define_vertical_scroll_areas(0, 0);
+
+        // Run our simulation sideways so we can use "vertical" scrolling to move it smoothly.
+        loop {
+            // Each column is a snapshot of the simulation
+            for x in (0..lcd::WIDTH).step_by(scale as usize).rev() {
+                display.vertical_scroll_update(x);
+
+                // Update the sim
+                sim.step();
+
+                // Write the updated state into our buffer
+                for y in 0..sim.width() {
+                    let is_alive = sim.get(y);
+                    let y = y as u16;
+                    // Write a scale by scale big pixel
+                    for dx in 0..scale {
+                        for dy in 0..scale {
+                            framebuffer[((x + dx), scale * y + dy)] =
+                                palettes[palette][is_alive as usize];
+                        }
+                    }
+                }
+
+                // Scroll and update the display with our new image
+                display.present(&framebuffer);
+                delay.delay_ms(10);
+            }
+        }
     }
 }

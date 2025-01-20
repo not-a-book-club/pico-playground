@@ -1,12 +1,16 @@
 use embedded_hal::digital::OutputPin;
-use embedded_hal::spi::SpiDevice;
+use embedded_hal::spi::{Operation, SpiDevice};
 
 use crate::{Rgb565, OHNO_PINK};
+
+use proc_bitfield::{bitfield, Bitfield};
+
+use core::ops::Range;
 
 pub const WIDTH: u16 = 240;
 pub const HEIGHT: u16 = 240;
 
-/// Driver for ST7789VW LCD display
+/// Driver for the `ST7789VW` LCD Display
 pub struct LcdDriver<Device, DataCmdPin> {
     /// SPI Device for reading+writing
     dev: Device,
@@ -23,8 +27,6 @@ where
 {
     pub fn new(dev: Device, dc: DataCmdPin) -> Self {
         let mut this = Self { dev, dc };
-
-        this.set_direction_horizontal(true);
         this.init();
 
         if cfg!(debug_assertions) {
@@ -34,23 +36,65 @@ where
         this
     }
 
-    pub fn present(&mut self, image: &crate::Image) {
+    /// Scrolls the entire image with the given offset(?)
+    ///
+    /// Call this with an increasing offset to animate.
+    ///
+    /// ## Note
+    /// If this offset overlaps with the fixed areas provided by [`Self::define_vertical_scroll_areas`], an "undesirable image will be displayed".
+    ///
+    /// ## Note
+    /// There is no mechanism for scrolling horizontally.
+    pub fn vertical_scroll_update(&mut self, offset: u16) {
+        // VSCSAD (37h): Vertical Scroll Start Address of RAM
+        self.cmd8(
+            0x37,
+            bytemuck::cast_slice(&[
+                offset.to_be_bytes(), // Vertical Scroll Position
+            ]),
+        )
+    }
+
+    /// Set up vertical scrolling
+    ///
+    /// ## Arguments
+    /// - `top_fixed` is the number of lines, from the top of the display, that should not update when scrolling.
+    /// - `bot_fixed` is the number of lines, from the bottom of the display, that should not update when scrolling.
+    ///
+    /// ## Note
+    /// Use `0` for both to scroll the entire display.
+    ///
+    /// ## Note
+    /// There is no mechanism for scrolling horizontally.
+    pub fn define_vertical_scroll_areas(&mut self, top_fixed: u16, bot_fixed: u16) {
+        let tfa = top_fixed.to_be_bytes();
+        let vsa = (HEIGHT - top_fixed - bot_fixed).to_be_bytes();
+        // The display RAM is sized for 320 tall, but our model only uses 240 of it.
+        // As such, we need to used the fixed area controls to exclude the unused memory. It's full of garbage data that isn't typically visible.
+        let bfa = (bot_fixed + (320 - HEIGHT)).to_be_bytes();
+
+        // VSCRDEF (33h): Vertical Scrolling Definition
+        self.cmd8(
+            0x33,
+            &[
+                tfa[0], tfa[1], // Top Fixed Area
+                vsa[0], vsa[1], // Vertical Scroll Area
+                bfa[0], bfa[1], // Bottom Fixed Area
+            ],
+        );
+    }
+
+    /// Updates only the AABB quad (xs, ys) from `image` to the display
+    pub fn present_range(&mut self, xs: Range<u16>, ys: Range<u16>, image: &crate::Image) {
         // CASET - Column Address Set
         self.cmd8(
             0x2A,
-            &[
-                // X coordinates
-                0x00,
-                0x00, // ??
-                0x00,
-                WIDTH as u8 - 1,
-                //
-                // Y coordinates
-                0x00,
-                0x00, // ??
-                0x00,
-                HEIGHT as u8 - 1,
-            ],
+            bytemuck::cast_slice(&[
+                xs.start.to_be_bytes(),     // X Start
+                (xs.end - 1).to_be_bytes(), // X End
+                ys.start.to_be_bytes(),     // Y Start
+                (ys.end - 1).to_be_bytes(), // Y End
+            ]),
         );
 
         // RAMWR - Memory Write
@@ -60,22 +104,25 @@ where
         self.cmd8(0x29, &[]);
     }
 
+    pub fn present(&mut self, image: &crate::Image) {
+        self.present_range(0..WIDTH, 0..HEIGHT, image);
+    }
+
     pub fn clear_to_color(&mut self, color: Rgb565) {
+        let x_s = 0_u16.to_be_bytes();
+        let x_e = (WIDTH - 1).to_be_bytes();
+
+        let y_s = 0_u16.to_be_bytes();
+        let y_e = (HEIGHT - 1).to_be_bytes();
+
         // CASET - Column Address Set
         self.cmd8(
             0x2A,
             &[
-                // X coordinates
-                0x00,
-                0x00, // ??
-                0x00,
-                WIDTH as u8 - 1,
-                //
-                // Y coordinates
-                0x00,
-                0x00, // ??
-                0x00,
-                HEIGHT as u8 - 1,
+                x_s[0], x_s[1], // X Start
+                x_e[0], x_e[1], // X End
+                y_s[0], y_s[1], // Y Start
+                y_e[0], y_e[1], // Y End
             ],
         );
 
@@ -116,20 +163,83 @@ where
     }
 }
 
+bitfield! {
+    /// Memory Data Access Control parameter
+    ///
+    /// ```txt
+    ///     Bit     NAME    DESCRIPTION
+    ///     D7      MY      Page Address Order
+    ///     D6      MX      Column Address Order
+    ///     D5      MV      Page/Column Order
+    ///     D4      ML      Line Address Order
+    ///     D3      RGB     RGB/BGR Order
+    ///     D2      MH      Display Data Latch Order
+    /// ```
+    #[derive(Copy, Clone, PartialEq, Eq)]
+    struct MadCtl(u8) : Debug, FromStorage, IntoStorage {
+        /// Page Address Order
+        pub my: u8 @ 7..=7,
+
+        /// Column Address Order
+        pub mx: u8 @ 6..=6,
+
+        /// Page/Column Order
+        pub mv: u8 @ 5..=5,
+
+        /// Line Address Order
+        pub ml: u8 @ 4..=4,
+
+        /// RGB/BGR Order
+        pub rgb: u8 @ 3..=3,
+
+        /// Display Data Latch Order
+        pub mh: u8 @ 2..=2,
+
+        pub reserved: u8 @ 0..2,
+    }
+}
+
+impl MadCtl {
+    fn new() -> Self {
+        Self::from_storage(0x0)
+    }
+}
+
 /// Internal methods
+#[allow(dead_code)]
 impl<Device, DataCmdPin> LcdDriver<Device, DataCmdPin>
 where
     Device: SpiDevice,
     DataCmdPin: OutputPin,
 {
-    fn set_direction_horizontal(&mut self, is_horizontal: bool) {
-        let memory_access = if is_horizontal { 0x70 } else { 0x0 };
+    /// RDDMADCTL (0Bh): Read Display MADCTL
+    fn read_madctl(&mut self) -> MadCtl {
+        let mut buf = [0; 1];
 
-        // MADCTL (36h): Memory Data Access Control
-        self.cmd8(0x36, &[memory_access]);
+        self.dc.set_low().unwrap();
+        self.dev.write(&[0x0B]).unwrap();
+
+        self.dc.set_high().unwrap();
+        self.dev
+            .transaction(&mut [Operation::TransferInPlace(&mut buf)])
+            .unwrap();
+
+        MadCtl::from(u8::from_be_bytes(buf))
+    }
+
+    /// MADCTL (36h): Memory Data Access Control
+    fn write_madctl(&mut self, madctl: MadCtl) {
+        self.cmd8(0x36, &madctl.into_storage().to_be_bytes());
     }
 
     fn init(&mut self) {
+        // Was 0x70/0x0, but this looks good too
+        self.write_madctl(
+            MadCtl::new()
+                .with_mv(1) //
+                .with_mx(1), //
+        );
+
         // COLMOD (3Ah): Interface Pixel Format
         self.cmd8(0x3A, &[0x05]);
 

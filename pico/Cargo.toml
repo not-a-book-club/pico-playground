@@ -28,6 +28,7 @@ rand = { version = "0.8", features = ["small_rng"], default-features = false }
 
 # Everything else
 bytemuck = { version = "1.21", features = ["derive", "min_const_generics"] }
+proc-bitfield = "0.5"
 
 [[bin]]
 name = "pico"
