@@ -8,7 +8,7 @@ use panic_probe as _;
 
 // Embedded things
 use cortex_m::delay::Delay;
-use embedded_hal::digital::OutputPin;
+use embedded_hal::digital::{InputPin, OutputPin};
 use embedded_hal::pwm::SetDutyCycle;
 use embedded_hal_bus::spi::ExclusiveDevice;
 use hal::fugit::*;
@@ -110,6 +110,11 @@ fn main() -> ! {
         .gpio13
         .into_push_pull_output_in_state(hal::gpio::PinState::High);
 
+    let mut btn_a = pins.gpio15.into_pull_up_input();
+    let mut _btn_b = pins.gpio17.into_pull_up_input();
+    let mut _btn_x = pins.gpio19.into_pull_up_input();
+    let mut btn_y = pins.gpio21.into_pull_up_input();
+
     // LED on the board - we use this mostly for proof-of-life
     let mut led = pins.led.into_push_pull_output();
 
@@ -173,48 +178,31 @@ fn main() -> ! {
     let mut framebuffer = Image::new(lcd::WIDTH, lcd::HEIGHT);
     let mut rng = SmallRng::from_seed(core::array::from_fn(|_| 17));
 
-    let do_life = false;
+    // Hold down A to go into the elementary sim
+    let do_life = btn_a.is_high().unwrap();
     if do_life {
-        let mut life = Life::new(lcd::WIDTH as usize / 4, lcd::HEIGHT as usize / 4);
-        life.clear_random(&mut rng);
-
-        // Age of the current simulation in steps
-        let mut sim_age = 0;
-        // MS delay after each step to make sure we have a good framerate
-        let per_step_delay_ms = 100;
+        let mut sim = Life::new(lcd::WIDTH as usize / 4, lcd::HEIGHT as usize / 4);
+        sim.clear_random(&mut rng);
 
         loop {
-            if sim_age > 0 {
-                if sim_age % 20 == 0 {
-                    display.idle_mode_on();
-                } else if sim_age % 20 == 10 {
-                    display.idle_mode_off();
-                }
-            }
-
             led.set_high().unwrap();
 
-            // if /* button A is pressed */ {
-            //    life.clear_random(&mut rng);
-            // }
-
-            // Simulations usually end in a looping and boring state, so periodically clear to random
-            if sim_age > {
-                (1000 / per_step_delay_ms) /* steps per second */ * 10 /* seconds */
-            } {
-                life.clear_random(&mut rng);
-
-                sim_age = 0;
+            // Press Y to cycle palettes
+            if btn_y.is_low().unwrap() {
                 palette += 1;
                 palette %= palettes.len();
             }
 
-            let n_updated = life.step();
+            // Press A to clear to random
+            if btn_a.is_low().unwrap() {
+                sim.clear_random(&mut rng);
+            }
 
+            let n_updated = sim.step();
             if n_updated != 0 {
-                for y in 0..life.height() {
-                    for x in 0..life.width() {
-                        let is_alive = life.get(x, y);
+                for y in 0..sim.height() {
+                    for x in 0..sim.width() {
+                        let is_alive = sim.get(x, y);
 
                         // Write a 4x4 big pixel
                         for dy in 0..4 {
@@ -229,10 +217,9 @@ fn main() -> ! {
             }
 
             display.present(&framebuffer);
-            sim_age += 1;
 
             led.set_low().unwrap();
-            delay.delay_ms(per_step_delay_ms);
+            delay.delay_ms(100);
         }
     } else {
         // let rule = 30;
@@ -254,6 +241,11 @@ fn main() -> ! {
             // Each column is a snapshot of the simulation
             for x in (0..lcd::WIDTH).step_by(scale as usize).rev() {
                 display.vertical_scroll_update(x);
+
+                if btn_y.is_low().unwrap() {
+                    palette += 1;
+                    palette %= palettes.len();
+                }
 
                 // Update the sim
                 sim.step();

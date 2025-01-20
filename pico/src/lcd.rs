@@ -19,6 +19,7 @@ pub struct LcdDriver<Device, DataCmdPin> {
     dc: DataCmdPin,
 }
 
+#[allow(dead_code)]
 /// Basic usage of the LCD Display
 impl<Device, DataCmdPin> LcdDriver<Device, DataCmdPin>
 where
