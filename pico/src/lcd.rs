@@ -29,7 +29,7 @@ pub struct DisplayId {
 }
 
 #[allow(dead_code)]
-/// Basic usage of the LCD Display
+/// High level usage of the LCD Display
 impl<Device, DataCmdPin> LcdDriver<Device, DataCmdPin>
 where
     Device: SpiDevice,
@@ -46,45 +46,42 @@ where
         this
     }
 
-    /// Returns 24-bit display identification information
-    pub fn id(&mut self) -> DisplayId {
-        let mut buf = [0_u8; 4];
-
-        // RDDID (04h): Read Display ID
-        self.dc.set_low().unwrap();
-        self.dev.write(&[0x04]).unwrap();
-
-        self.dc.set_high().unwrap();
-        self.dev
-            .transaction(&mut [Operation::TransferInPlace(&mut buf)])
-            .unwrap();
-
-        let [_, manufacturer_id, version_id, module_id] = buf;
-
-        DisplayId {
-            manufacturer_id,
-            version_id,
-            module_id,
-        }
+    /// Updates the entire display using `image`
+    pub fn present(&mut self, image: &crate::Image) {
+        self.present_range(0..WIDTH, 0..HEIGHT, image);
     }
 
-    /// Scrolls the entire image with the given offset(?)
-    ///
-    /// Call this with an increasing offset to animate.
-    ///
-    /// ## Note
-    /// If this offset overlaps with the fixed areas provided by [`Self::define_vertical_scroll_areas`], an "undesirable image will be displayed".
-    ///
-    /// ## Note
-    /// There is no mechanism for scrolling horizontally.
-    pub fn vertical_scroll_update(&mut self, offset: u16) {
-        // VSCSAD (37h): Vertical Scroll Start Address of RAM
-        self.cmd8(
-            0x37,
-            bytemuck::cast_slice(&[
-                offset.to_be_bytes(), // Vertical Scroll Position
-            ]),
-        )
+    /// Updates the region of the display specified by the AABB quad (xs, ys) using the same region from `image`
+    // TODO: Is "region matching" like this useful? Maybe should be a dedicated image sent whole-sale
+    pub fn present_range(&mut self, xs: Range<u16>, ys: Range<u16>, image: &crate::Image) {
+        self.set_window(xs.start, xs.end - 1, ys.start, ys.end - 1);
+
+        // RAMWR - Memory Write
+        self.cmd8(0x2C, image.as_bytes());
+    }
+
+    // TODO: Fails dunno why
+    // pub fn set_pixel_2x2(&mut self, x: u16, y: u16, color: Rgb565) {
+    //     self.set_window(x, x + 1, y, y + 1);
+
+    //     // RAMWR - Memory Write
+    //     self.cmd8(0x2C, bytemuck::cast_slice(&[color, color, color, color]));
+    // }
+
+    pub fn clear_to_color(&mut self, color: Rgb565) {
+        self.set_window(0, WIDTH - 1, 0, HEIGHT - 1);
+
+        // RAMWR - Memory Write
+        {
+            // Write the clear color one row at a time
+            self.cmd8(0x2C, &[]);
+
+            let buf = [color; WIDTH as usize];
+            let bytes: &[u8] = bytemuck::cast_slice(&buf);
+            for _ in 0..HEIGHT {
+                self.dev.write(bytes).unwrap();
+            }
+        }
     }
 
     /// Set up vertical scrolling
@@ -98,6 +95,8 @@ where
     ///
     /// ## Note
     /// There is no mechanism for scrolling horizontally.
+    ///
+    // This is high-level because there are weird uses of this that we do not expose
     pub fn define_vertical_scroll_areas(&mut self, top_fixed: u16, bot_fixed: u16) {
         let tfa = top_fixed.to_be_bytes();
         let vsa = (HEIGHT - top_fixed - bot_fixed).to_be_bytes();
@@ -114,84 +113,6 @@ where
                 bfa[0], bfa[1], // Bottom Fixed Area
             ],
         );
-    }
-
-    /// Updates only the AABB quad (xs, ys) from `image` to the display
-    pub fn present_range(&mut self, xs: Range<u16>, ys: Range<u16>, image: &crate::Image) {
-        // CASET - Column Address Set
-        self.cmd8(
-            0x2A,
-            bytemuck::cast_slice(&[
-                xs.start.to_be_bytes(),     // X Start
-                (xs.end - 1).to_be_bytes(), // X End
-                ys.start.to_be_bytes(),     // Y Start
-                (ys.end - 1).to_be_bytes(), // Y End
-            ]),
-        );
-
-        // RAMWR - Memory Write
-        self.cmd8(0x2C, image.as_bytes());
-
-        // DISPON - Display On
-        self.cmd8(0x29, &[]);
-    }
-
-    pub fn present(&mut self, image: &crate::Image) {
-        self.present_range(0..WIDTH, 0..HEIGHT, image);
-    }
-
-    pub fn clear_to_color(&mut self, color: Rgb565) {
-        let x_s = 0_u16.to_be_bytes();
-        let x_e = (WIDTH - 1).to_be_bytes();
-
-        let y_s = 0_u16.to_be_bytes();
-        let y_e = (HEIGHT - 1).to_be_bytes();
-
-        // CASET - Column Address Set
-        self.cmd8(
-            0x2A,
-            &[
-                x_s[0], x_s[1], // X Start
-                x_e[0], x_e[1], // X End
-                y_s[0], y_s[1], // Y Start
-                y_e[0], y_e[1], // Y End
-            ],
-        );
-
-        // RAMWR - Memory Write
-        {
-            self.cmd8(0x2C, &[]);
-
-            // Write the clear color one row at a time
-            let buf = [color; WIDTH as usize];
-            let bytes: &[u8] = bytemuck::cast_slice(&buf);
-            for _ in 0..HEIGHT {
-                self.dev.write(bytes).unwrap();
-            }
-        }
-
-        // DISPON - Display On
-        self.cmd8(0x29, &[]);
-    }
-
-    /// Enable the LCD Idle Mode
-    ///
-    /// When Idle Mode is on, color bit depth is significant reduced.
-    /// - The MSB of each R, G, and B channel is used to select colors
-    /// - 8-Color mode frame frequency is applied.
-    ///
-    /// Idle Mode defaults to off.
-    pub fn idle_mode_on(&mut self) {
-        // IDMON (39h): Idle mode on
-        self.cmd8(0x39, &[]);
-    }
-
-    /// Disable the LCD Idle Mode
-    ///
-    /// Idle Mode defaults to off.
-    pub fn idle_mode_off(&mut self) {
-        // IDMOFF (38h): Idle Mode Off
-        self.cmd8(0x38, &[]);
     }
 }
 
@@ -237,17 +158,39 @@ impl MadCtl {
     }
 }
 
-/// Internal methods
+/// Lower level usage of the display that maps directly to a HW command
 #[allow(dead_code)]
 impl<Device, DataCmdPin> LcdDriver<Device, DataCmdPin>
 where
     Device: SpiDevice,
     DataCmdPin: OutputPin,
 {
+    /// Returns 24-bit display identification information
+    /// RDDID (04h): Read Display ID
+    pub fn id(&mut self) -> DisplayId {
+        let mut buf = [0_u8; 4];
+
+        self.dc.set_low().unwrap();
+        self.dev.write(&[0x04]).unwrap();
+
+        self.dc.set_high().unwrap();
+        self.dev
+            .transaction(&mut [Operation::TransferInPlace(&mut buf)])
+            .unwrap();
+
+        let [_, manufacturer_id, version_id, module_id] = buf;
+        DisplayId {
+            manufacturer_id,
+            version_id,
+            module_id,
+        }
+    }
+
     /// RDDMADCTL (0Bh): Read Display MADCTL
     fn read_madctl(&mut self) -> MadCtl {
         let mut buf = [0; 1];
 
+        // TODO: Refactor into a helper function like cmd8
         self.dc.set_low().unwrap();
         self.dev.write(&[0x0B]).unwrap();
 
@@ -259,13 +202,111 @@ where
         MadCtl::from(u8::from_be_bytes(buf))
     }
 
+    /// INVOFF (20h): Display Inversion Off
+    pub fn inversion_off(&mut self) {
+        self.cmd8(0x20, &[]);
+    }
+
+    /// INVON (21h): Display Inversion On
+    pub fn inversion_on(&mut self) {
+        self.cmd8(0x21, &[]);
+    }
+
+    /// DISPOFF (28h): Display Off
+    pub fn display_off(&mut self) {
+        self.cmd8(0x28, &[]);
+    }
+
+    /// DISPON (29h): Display On
+    pub fn display_on(&mut self) {
+        self.cmd8(0x29, &[]);
+    }
+
+    /// Sets the window for the following (usually) command
+    ///
+    /// Note that `x_hi` and `y_hi` are **inclusive**.
+    ///
+    /// CASET - Column Address Set
+    fn set_window(&mut self, x_lo: u16, x_hi: u16, y_lo: u16, y_hi: u16) {
+        self.cmd8(
+            0x2A,
+            bytemuck::cast_slice(&[
+                x_lo.to_be_bytes(), // X Start
+                x_hi.to_be_bytes(), // X End
+                y_lo.to_be_bytes(), // Y Start
+                y_hi.to_be_bytes(), // Y End
+            ]),
+        );
+    }
+
+    /// Scrolls the entire image with the given offset(?)
+    ///
+    /// Call this with an increasing offset to animate.
+    ///
+    /// ## Note
+    /// If this offset overlaps with the fixed areas provided by [`Self::define_vertical_scroll_areas`], an "undesirable image will be displayed".
+    ///
+    /// ## Note
+    /// There is no mechanism for scrolling horizontally.
+    ///
+    /// VSCSAD (37h): Vertical Scroll Start Address of RAM
+    pub fn vertical_scroll_update(&mut self, offset: u16) {
+        self.cmd8(
+            0x37,
+            bytemuck::cast_slice(&[
+                offset.to_be_bytes(), // Vertical Scroll Position
+            ]),
+        )
+    }
+
+    /// Disable the LCD Idle Mode
+    ///
+    /// Idle Mode defaults to off.
+    ///
+    /// IDMOFF (38h): Idle Mode Off
+    pub fn idle_mode_off(&mut self) {
+        self.cmd8(0x38, &[]);
+    }
+
+    /// Enable the LCD Idle Mode
+    ///
+    /// When Idle Mode is on, color bit depth is significant reduced.
+    /// - The MSB of each R, G, and B channel is used to select colors
+    /// - 8-Color mode frame frequency is applied.
+    ///
+    /// Idle Mode defaults to off.
+    ///
+    /// IDMON (39h): Idle mode on
+    pub fn idle_mode_on(&mut self) {
+        self.cmd8(0x39, &[]);
+    }
+
     /// MADCTL (36h): Memory Data Access Control
     fn write_madctl(&mut self, madctl: MadCtl) {
-        self.cmd8(0x36, &madctl.into_storage().to_be_bytes());
+        self.cmd8(0x36, &[madctl.into_storage()]);
+    }
+
+    /// WRDISBV (51h): Write Display Brightness
+    pub fn write_brightness(&mut self, brightness: u8) {
+        self.cmd8(0x51, &[brightness]);
+    }
+
+    /// RDDISBV (52h): Read Display Brightness Value
+    pub fn read_brightness(&mut self, brightness: u8) -> u8 {
+        let mut buf = [0, brightness];
+
+        self.dc.set_low().unwrap();
+        self.dev.write(&[0x52]).unwrap();
+
+        self.dc.set_high().unwrap();
+        self.dev
+            .transaction(&mut [Operation::TransferInPlace(&mut buf)])
+            .unwrap();
+
+        buf[1]
     }
 
     fn init(&mut self) {
-        // Was 0x70/0x0, but this looks good too
         self.write_madctl(
             MadCtl::new()
                 .with_mv(1) //
@@ -275,34 +316,34 @@ where
         // COLMOD (3Ah): Interface Pixel Format
         self.cmd8(0x3A, &[0x05]);
 
-        // magic i guess
+        // PORCTRL (B2h): Porch Setting
         self.cmd8(0xB2, &[0x0C, 0x0C, 0x00, 0x33, 0x33]);
 
-        // Gate Control
+        // GCTRL (B7h): Gate Control
         self.cmd8(0xB7, &[0x35]);
 
-        // VCOM Setting
+        // VCOMS (BBh): VCOM
         self.cmd8(0xBB, &[0x19]);
 
-        // LCM Control
+        // LCMCTRL (C0h): LCM Control
         self.cmd8(0xC0, &[0x2C]);
 
-        // VDV and VRH Command Enable
+        // VDVVRHEN (C2h): VDV and VRH Command Enable
         self.cmd8(0xC2, &[0x01]);
 
-        // VRH Set
+        // VRHS (C3h): VRH Set
         self.cmd8(0xC3, &[0x12]);
 
-        // VDV Set
+        // VDVS (C4h): VDV Set
         self.cmd8(0xC4, &[0x20]);
 
-        // Frame Rate Control in Normal Mode
+        // FRCTRL2 (C6h): Frame Rate Control in Normal Mode
         self.cmd8(0xC6, &[0x0F]);
 
-        // 8Power Control 1
+        // PWCTRL1 (D0h): Power Control 1 .
         self.cmd8(0xD0, &[0xA4, 0xA1]);
 
-        // Positive Voltage Gamma Control
+        // PVGAMCTRL (E0h): Positive Voltage Gamma Control
         self.cmd8(
             0xE0,
             &[
@@ -310,7 +351,7 @@ where
             ],
         );
 
-        // Negative Voltage Gamma Control
+        // NVGAMCTRL (E1h): Negative Voltage Gamma Control
         self.cmd8(
             0xE1,
             &[
@@ -319,15 +360,19 @@ where
         );
 
         // Display Inversion On
-        self.cmd8(0x21, &[]);
+        // We need this ON to have colors behave normally. Seems backwards but it works.
+        self.inversion_on();
 
-        // Sleep Out
+        // SLPOUT (11h): Sleep Out
+        // TODO:
+        //      - It will be necessary to wait 5msec before sending any new commands to a display module
+        //          following this command to allow time for the supply voltages and clock circuits to stabilize.
+        //      - It will be necessary to wait 120msec after sending sleep out command
+        //          (when in sleep in mode) before sending an sleep in command.
         self.cmd8(0x11, &[]);
-        // "-It will be necessary to wait 5msec before sending any new commands"
-        // todo
 
         // Display On
-        self.cmd8(0x29, &[]);
+        self.display_on();
     }
 
     /// Sends `reg` with DC (DataCmdPin) set low, then sets DC high.
