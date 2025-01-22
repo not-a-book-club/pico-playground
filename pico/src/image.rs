@@ -1,5 +1,3 @@
-use crate::OHNO_PINK;
-
 use bytemuck::*;
 
 use alloc::{vec, vec::Vec};
@@ -31,17 +29,19 @@ const fn to_rgb565(color: u32) -> u16 {
     (b << 0) | (g << 5) | (r << (5 + 6))
 }
 
-// TODO: Generic over pixel type (Rgb565)?
-pub struct Image {
-    buf: Vec<Rgb565>,
+pub struct Image<Pixel = Rgb565> {
+    buf: Vec<Pixel>,
     width: u16,
     height: u16,
 }
 
 #[allow(dead_code)]
-impl Image {
+impl<Pixel> Image<Pixel>
+where
+    Pixel: Pod,
+{
     pub fn new(width: u16, height: u16) -> Self {
-        let buf = vec![OHNO_PINK; (width * height) as usize];
+        let buf = vec![Pixel::zeroed(); (width * height) as usize];
         Self { buf, width, height }
     }
 
@@ -57,7 +57,7 @@ impl Image {
         bytemuck::cast_slice(&self.buf)
     }
 
-    pub fn fill(&mut self, color: Rgb565) {
+    pub fn fill(&mut self, color: Pixel) {
         self.buf.fill(color);
     }
 
@@ -71,8 +71,11 @@ impl Image {
     }
 }
 
-impl Index<(u16, u16)> for Image {
-    type Output = Rgb565;
+impl<Pixel> Index<(u16, u16)> for Image<Pixel>
+where
+    Pixel: Pod,
+{
+    type Output = Pixel;
     fn index(&self, (x, y): (u16, u16)) -> &Self::Output {
         if let Some(idx) = self.raw_idx(x, y) {
             &self.buf[idx]
@@ -86,7 +89,10 @@ impl Index<(u16, u16)> for Image {
     }
 }
 
-impl IndexMut<(u16, u16)> for Image {
+impl<Pixel> IndexMut<(u16, u16)> for Image<Pixel>
+where
+    Pixel: Pod,
+{
     fn index_mut(&mut self, (x, y): (u16, u16)) -> &mut Self::Output {
         if let Some(idx) = self.raw_idx(x, y) {
             &mut self.buf[idx]
