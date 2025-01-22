@@ -8,6 +8,7 @@ use panic_probe as _;
 
 // Embedded things
 use cortex_m::delay::Delay;
+#[allow(unused)]
 use embedded_hal::digital::{InputPin, OutputPin};
 use embedded_hal_bus::spi::ExclusiveDevice;
 use hal::fugit::*;
@@ -106,7 +107,7 @@ fn main() -> ! {
     let mut btn_b = pins.gpio17.into_pull_up_input();
 
     // LED on the board - we use this mostly for proof-of-life
-    let mut led = pins.led.into_push_pull_output();
+    let mut _led = pins.led.into_push_pull_output();
 
     let sclk = pins.gpio10.into_function::<hal::gpio::FunctionSpi>();
     let mosi = pins.gpio11.into_function::<hal::gpio::FunctionSpi>();
@@ -140,20 +141,17 @@ fn main() -> ! {
     }
 
     let mut display = OledDriver::new(spi_dev, dc, &mut rst, &mut delay);
+    display.set_contrast(0);
 
     let mut rng = SmallRng::from_seed(core::array::from_fn(|_| 17));
     let mut sim = simulations::Life::new(oled::WIDTH as usize, oled::HEIGHT as usize);
     sim.clear_random(&mut rng);
 
-    let mut contrast = 0;
-    loop {
-        // Functionally, this is brightness
-        display.set_contrast(contrast);
-        contrast = contrast.wrapping_add(8);
+    let mut image = [[0_u8; oled::WIDTH as usize / 8]; oled::HEIGHT as usize];
 
-        led.set_high().unwrap();
-        display.inverse_on();
-        delay.delay_ms(400);
+    loop {
+        // led.set_high().unwrap();
+        // delay.delay_ms(100);
 
         let a = btn_a.is_low().unwrap();
         let b = btn_b.is_low().unwrap();
@@ -165,6 +163,22 @@ fn main() -> ! {
             // Press A to clear to random
             (true, _) => sim.clear_random(&mut rng),
 
+            // Press B to spawn random circles
+            (_, true) => {
+                use rand::Rng;
+                let n = 10;
+                let xx: i16 = rng.gen_range(2 * n..sim.width()) - n;
+                let yy: i16 = rng.gen_range(2 * n..sim.height()) - n;
+                for y in (yy - n)..(yy + n) {
+                    for x in (xx - n)..(xx + n) {
+                        let dist = (x - xx).abs() + (y - yy).abs();
+                        if dist <= n && dist % 3 == 0 {
+                            sim.set(x, y, true);
+                        }
+                    }
+                }
+            }
+
             _ => {}
         }
 
@@ -172,15 +186,18 @@ fn main() -> ! {
         if n_updated != 0 {
             for y in 0..sim.height() {
                 for x in 0..sim.width() {
+                    // ohgod
+                    image[y as usize][x as usize / 8] &= !(1 << (x % 8));
                     if sim.get(x, y) {
-                        // display.set(x, y);
+                        image[y as usize][x as usize / 8] |= 1 << (x % 8);
                     }
                 }
             }
         }
 
-        led.set_low().unwrap();
-        display.inverse_off();
-        delay.delay_ms(400);
+        display.present(&image);
+
+        // led.set_low().unwrap();
+        // delay.delay_ms(100);
     }
 }

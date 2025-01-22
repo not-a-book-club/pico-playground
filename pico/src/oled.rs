@@ -44,11 +44,23 @@ where
         let width = WIDTH as u8;
         let height = HEIGHT as u8;
         self.set_page_addr(0); // ???
-        for y in (0..height).rev() {
+        for y in 0..height {
             self.set_column_addr(y);
-            for i in 0..(width / 8) {
+            for _y in 0..(width / 8) {
                 let row = 0b0000_0000;
                 self.data(row);
+            }
+        }
+    }
+
+    pub fn present(&mut self, image: &[[u8; WIDTH as usize / 8]; HEIGHT as usize]) {
+        let width = WIDTH as u8;
+        let height = HEIGHT as u8;
+        self.set_page_addr(0); // ???
+        for y in 0..height {
+            self.set_column_addr(y);
+            for x in 0..(width / 8) {
+                self.data(image[y as usize][x as usize]);
             }
         }
     }
