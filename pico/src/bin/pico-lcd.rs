@@ -23,15 +23,7 @@ use rand::{rngs::SmallRng, SeedableRng};
 use simulations::Elementry;
 use simulations::Life;
 
-mod image;
-use image::{Image, Rgb565};
-
-mod lcd;
-use lcd::LcdDriver;
-
-pub const AOC_BLUE: Rgb565 = Rgb565::from_rgb888(0x0f_0f_23);
-pub const AOC_GOLD: Rgb565 = Rgb565::from_rgb888(0xff_ff_66);
-pub const OHNO_PINK: Rgb565 = Rgb565::new(0xF8_1F);
+use pico::*;
 
 #[rp_pico::entry]
 fn main() -> ! {
@@ -88,6 +80,27 @@ fn main() -> ! {
         &mut pac.RESETS,
     );
 
+    // Log some interesting data from ROM
+    unsafe {
+        use hal::rom_data as rom;
+
+        info!("\"{}\"", rom::copyright_string());
+        info!("rom_version_number: {}", rom::rom_version_number());
+
+        let fplib_start = rom::fplib_start();
+        let fplib_end = rom::fplib_end();
+        info!(
+            "fplib: {} bytes [0x{:08x}, 0x{:08x}]",
+            fplib_start.offset_from(fplib_end),
+            fplib_start,
+            fplib_end,
+        );
+
+        info!("bootrom git rev: {}", rom::git_revision());
+    }
+
+    // === LCD Specific Code Begins ===========================================
+
     // GPIOs:
     //      ePaper Pico/Pico2  Description
     //      VCC    VSYS        Power Input
@@ -107,9 +120,9 @@ fn main() -> ! {
     //      LEFT   GP16        Joystick-left
     //      RIGHT  GP20        Joystick-right
     //      CTRL   GP3         Joystick-center
-    let mut rst = pins.gpio12.into_push_pull_output();
     let dc = pins.gpio8.into_push_pull_output();
     let cs = pins.gpio9.into_push_pull_output();
+    let mut rst = pins.gpio12.into_push_pull_output();
     let _bl = pins
         .gpio13
         .into_push_pull_output_in_state(hal::gpio::PinState::High);
@@ -142,56 +155,21 @@ fn main() -> ! {
     let timer = hal::Timer::new(pac.TIMER, &mut pac.RESETS, &clocks);
     let spi_dev = ExclusiveDevice::new(spi_bus, cs, timer).unwrap();
 
-    // Need to reset the display before initializing it
     // TODO: Explain/cite the magic here
+    let pwm_slices = hal::pwm::Slices::new(pac.PWM, &mut pac.RESETS);
     {
         // Set PWM
-        {
-            let pwm_slices = hal::pwm::Slices::new(pac.PWM, &mut pac.RESETS);
 
-            // slicenum from bl pin
-            let mut pwm = pwm_slices.pwm6;
-            pwm.set_ph_correct();
+        // slicenum from bl pin
+        let mut pwm = pwm_slices.pwm6;
+        pwm.set_ph_correct();
 
-            // chan B to 90
-            pwm.channel_b.set_duty_cycle_fraction(9, 10).unwrap();
-            pwm.enable();
-        }
-        // Reset
-        {
-            rst.set_high().unwrap();
-            delay.delay_ms(100);
-
-            rst.set_low().unwrap();
-            delay.delay_ms(100);
-
-            rst.set_high().unwrap();
-            delay.delay_ms(100);
-        }
+        // chan B to 90
+        pwm.channel_b.set_duty_cycle_fraction(9, 10).unwrap();
+        pwm.enable();
     }
 
-    // Log some interesting data from ROM
-    unsafe {
-        use hal::rom_data as rom;
-
-        info!("\"{}\"", rom::copyright_string());
-        info!("rom_version_number: {}", rom::rom_version_number());
-
-        let fplib_start = rom::fplib_start();
-        let fplib_end = rom::fplib_end();
-        info!(
-            "fplib: {} bytes [0x{:08x}, 0x{:08x}]",
-            fplib_start.offset_from(fplib_end),
-            fplib_start,
-            fplib_end,
-        );
-
-        info!("bootrom git rev: {}", rom::git_revision());
-    }
-
-    // TODO: Read frame data before we init, it's a source of RNG!
-
-    let mut display = LcdDriver::new(spi_dev, dc);
+    let mut display = LcdDriver::new(spi_dev, dc, &mut rst, &mut delay);
     let display_id = display.id();
     info!("Display info: {:?}", display_id);
 

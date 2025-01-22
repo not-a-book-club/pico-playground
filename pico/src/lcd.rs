@@ -1,9 +1,9 @@
+use crate::{Image, Rgb565, OHNO_PINK};
+
+use cortex_m::delay::Delay;
 use defmt::Format;
 use embedded_hal::digital::OutputPin;
 use embedded_hal::spi::{Operation, SpiDevice};
-
-use crate::{Rgb565, OHNO_PINK};
-
 use proc_bitfield::{bitfield, Bitfield};
 
 use core::ops::Range;
@@ -35,8 +35,12 @@ where
     Device: SpiDevice,
     DataCmdPin: OutputPin,
 {
-    pub fn new(dev: Device, dc: DataCmdPin) -> Self {
+    pub fn new<Pin>(dev: Device, dc: DataCmdPin, rst: &mut Pin, delay: &mut Delay) -> Self
+    where
+        Pin: embedded_hal::digital::OutputPin,
+    {
         let mut this = Self { dev, dc };
+        this.reset(rst, delay);
         this.init();
 
         if cfg!(debug_assertions) {
@@ -47,13 +51,13 @@ where
     }
 
     /// Updates the entire display using `image`
-    pub fn present(&mut self, image: &crate::Image) {
+    pub fn present(&mut self, image: &Image<Rgb565>) {
         self.present_range(0..WIDTH, 0..HEIGHT, image);
     }
 
     /// Updates the region of the display specified by the AABB quad (xs, ys) using the same region from `image`
     // TODO: Is "region matching" like this useful? Maybe should be a dedicated image sent whole-sale
-    pub fn present_range(&mut self, xs: Range<u16>, ys: Range<u16>, image: &crate::Image) {
+    pub fn present_range(&mut self, xs: Range<u16>, ys: Range<u16>, image: &Image<Rgb565>) {
         self.set_window(xs.start, xs.end - 1, ys.start, ys.end - 1);
 
         // RAMWR - Memory Write
@@ -388,5 +392,21 @@ where
         if !data.is_empty() {
             self.dev.write(data).unwrap();
         }
+    }
+
+    fn reset<Pin>(&mut self, rst: &mut Pin, delay: &mut Delay)
+    where
+        Pin: embedded_hal::digital::OutputPin,
+    {
+        delay.delay_ms(100);
+
+        rst.set_high().unwrap();
+        delay.delay_ms(100);
+
+        rst.set_low().unwrap();
+        delay.delay_ms(100);
+
+        rst.set_high().unwrap();
+        delay.delay_ms(100);
     }
 }

@@ -3,6 +3,18 @@ name = "pico"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "pico-lcd"
+path = "src/bin/pico-lcd.rs"
+test = false
+bench = false
+
+[[bin]]
+name = "pico-oled"
+path = "src/bin/pico-oled.rs"
+test = false
+bench = false
+
 [dependencies]
 # Embedded Things
 cortex-m = "0.7"
@@ -29,12 +41,6 @@ rand = { version = "0.8", features = ["small_rng"], default-features = false }
 # Everything else
 bytemuck = { version = "1.21", features = ["derive", "min_const_generics"] }
 proc-bitfield = "0.5"
-
-[[bin]]
-name = "pico"
-path = "src/pico.rs"
-test = false
-bench = false
 
 # Enable full optimizations on debug builds of dependencies.
 # We rarely step through them.
