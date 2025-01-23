@@ -8,8 +8,11 @@ use defmt_rtt as _;
 
 // Embedded things
 use cortex_m::delay::Delay;
+use embedded_graphics::mono_font::{ascii, MonoTextStyle};
+use embedded_graphics::prelude::*;
+use embedded_graphics::primitives::*;
+use embedded_graphics::text::{renderer::TextRenderer, Text};
 use embedded_hal::digital::InputPin;
-use embedded_hal_bus::spi::ExclusiveDevice;
 use hal::fugit::*;
 use hal::prelude::*;
 use rp_pico::hal;
@@ -137,7 +140,7 @@ fn main() -> ! {
         embedded_hal::spi::MODE_0,
     );
     let timer = hal::Timer::new(pac.TIMER, &mut pac.RESETS, &clocks);
-    let spi_dev = ExclusiveDevice::new(spi_bus, cs, timer).unwrap();
+    let spi_dev = embedded_hal_bus::spi::ExclusiveDevice::new(spi_bus, cs, timer).unwrap();
 
     // Log some interesting data from ROM
     unsafe {
@@ -158,14 +161,36 @@ fn main() -> ! {
         info!("bootrom git rev: {}", rom::git_revision());
     }
 
-    let mut display = OledDriver::new(spi_dev, dc, &mut rst, &mut delay);
-    display.set_contrast(0);
+    let driver = OledDriver::new(spi_dev, dc, &mut rst, &mut delay);
+    let mut display = oled::Display::new(driver);
+
+    let view_width = oled::WIDTH as u32;
+    let view_height = oled::HEIGHT as u32 - 15;
+    let style_white_border = PrimitiveStyleBuilder::new()
+        .stroke_width(1)
+        .stroke_color(oled::BinaryColor::On)
+        // .fill_color(oled::BinaryColor::Off)
+        .build();
+    let _style_fill_black = PrimitiveStyleBuilder::new()
+        .stroke_width(1)
+        .stroke_color(oled::BinaryColor::On)
+        .fill_color(oled::BinaryColor::On)
+        .build();
+    let _style_fill_white = PrimitiveStyleBuilder::new()
+        .stroke_width(1)
+        .stroke_color(oled::BinaryColor::On)
+        .fill_color(oled::BinaryColor::On)
+        .build();
+
+    let style_text = MonoTextStyle::new(&ascii::FONT_5X8, oled::BinaryColor::On);
+    let line_height = style_text.line_height() as i32;
+    let line_margin = line_height / 3;
 
     let mut rng = SmallRng::from_seed(core::array::from_fn(|_| 17));
     let mut sim = simulations::Life::new(oled::WIDTH as usize, oled::HEIGHT as usize);
     sim.clear_random(&mut rng);
 
-    let mut image = [[0_u8; oled::WIDTH as usize / 8]; oled::HEIGHT as usize];
+    let mut needs_refresh = true;
 
     loop {
         // led.set_high().unwrap();
@@ -200,22 +225,44 @@ fn main() -> ! {
             _ => {}
         }
 
+        // let n_updated = 0;
         let n_updated = sim.step();
         if n_updated != 0 {
-            for y in 0..sim.height() {
-                for x in 0..sim.width() {
-                    // ohgod
-                    image[y as usize][x as usize / 8] &= !(1 << (x % 8));
-                    if sim.get(x, y) {
-                        image[y as usize][x as usize / 8] |= 1 << (x % 8);
-                    }
-                }
-            }
+            needs_refresh = true;
         }
 
-        display.present(&image);
+        // Draw!
+        if needs_refresh {
+            let base_y = (oled::HEIGHT as u32 - view_height) as i32;
+
+            // Draw a nice title
+            let text = Text::new(
+                "Conway's Game of Life",
+                Point::new(3, base_y - 3),
+                style_text,
+            );
+            let _ = text.draw(&mut display);
+
+            // Draw our sim "to" the view
+            for y in (base_y as i16 + 3)..(sim.height() - 3) {
+                for x in 3..(sim.width() - 3) {
+                    let is_alive = sim.get(x, y);
+                    display.set(x, y, is_alive);
+                }
+            }
+
+            // Draw border around our view
+            let _ = RoundedRectangle::with_equal_corners(
+                Rectangle::new(Point::new(0, base_y), Size::new(view_width, view_height)),
+                Size::new(5, 5),
+            )
+            .draw_styled(&style_white_border, &mut display);
+
+            display.flush();
+            needs_refresh = false;
+        }
 
         // led.set_low().unwrap();
-        // delay.delay_ms(100);
+        // delay.delay_ms(500);
     }
 }

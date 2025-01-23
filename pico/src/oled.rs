@@ -1,15 +1,129 @@
-#![allow(unused)]
 #![allow(non_upper_case_globals)]
 
-use bytemuck::*;
 use cortex_m::delay::Delay;
+use embedded_graphics::prelude::*;
+use embedded_graphics::primitives::Rectangle;
 use embedded_hal::digital::OutputPin;
-use embedded_hal::spi::{Operation, SpiDevice};
-
-use core::ops::Range;
+use embedded_hal::spi::SpiDevice;
 
 pub const WIDTH: u16 = 128;
 pub const HEIGHT: u16 = 64;
+
+pub use embedded_graphics::pixelcolor::BinaryColor;
+
+//todo
+pub struct Display<Device, DataCmdPin> {
+    driver: OledDriver<Device, DataCmdPin>,
+    buf: [[u8; WIDTH as usize / 8]; HEIGHT as usize],
+}
+
+impl<Device, DataCmdPin> Display<Device, DataCmdPin>
+where
+    Device: SpiDevice,
+    DataCmdPin: OutputPin,
+{
+    pub fn new(driver: OledDriver<Device, DataCmdPin>) -> Self {
+        Self {
+            driver,
+            buf: [[0u8; WIDTH as usize / 8]; HEIGHT as usize],
+        }
+    }
+
+    pub fn get(&self, x: i16, y: i16) -> bool {
+        (self.buf[y as usize][x as usize / 8] & (1 << (x % 8))) != 0
+    }
+
+    pub fn set(&mut self, x: i16, y: i16, c: bool) {
+        self.buf[y as usize][x as usize / 8] &= !(1 << (x % 8));
+        if c {
+            self.buf[y as usize][x as usize / 8] |= 1 << (x % 8);
+        }
+    }
+
+    pub fn flip(&mut self, x: u8, y: u8) {
+        self.buf[y as usize][x as usize / 8] &= !(1 << (x % 8));
+        self.buf[y as usize][x as usize / 8] ^= 1 << (x % 8);
+    }
+
+    pub fn get_color(&self, x: i16, y: i16) -> BinaryColor {
+        self.get(x, y).into()
+    }
+
+    pub fn set_color(&mut self, x: i16, y: i16, c: BinaryColor) {
+        self.set(x, y, c.is_on());
+    }
+
+    pub fn clear_black(&mut self) {
+        let _ = self.clear(BinaryColor::Off);
+    }
+
+    pub fn clear_white(&mut self) {
+        let _ = self.clear(BinaryColor::On);
+    }
+
+    pub fn flush(&mut self) {
+        let width = WIDTH as u8;
+        let height = HEIGHT as u8;
+        self.driver.set_page_addr(0); // ???
+        for y in 0..height {
+            self.driver.set_column_addr(y);
+            for x in (0..(width / 8)).rev() {
+                let rev = self.buf[y as usize][x as usize].reverse_bits();
+                self.driver.data(rev);
+            }
+        }
+    }
+}
+impl<Device, DataCmdPin> Dimensions for Display<Device, DataCmdPin>
+where
+    Device: SpiDevice,
+    DataCmdPin: OutputPin,
+{
+    fn bounding_box(&self) -> Rectangle {
+        Rectangle {
+            top_left: Point::new(0, 0),
+            size: Size {
+                width: WIDTH as u32,
+                height: HEIGHT as u32,
+            },
+        }
+    }
+}
+
+impl<Device, DataCmdPin> DrawTarget for Display<Device, DataCmdPin>
+where
+    Device: SpiDevice,
+    DataCmdPin: OutputPin,
+{
+    type Color = BinaryColor;
+    type Error = ();
+
+    fn draw_iter<I>(&mut self, pixels: I) -> Result<(), Self::Error>
+    where
+        I: IntoIterator<Item = Pixel<Self::Color>>,
+    {
+        for Pixel(Point { x, y }, c) in pixels.into_iter() {
+            if x >= 0 && y >= 0 && x < WIDTH as i32 && y < HEIGHT as i32 {
+                self.set_color(x as i16, y as i16, c);
+            }
+        }
+        Ok(())
+    }
+
+    fn clear(&mut self, color: Self::Color) -> Result<(), Self::Error> {
+        if color.is_off() {
+            for xs in &mut self.buf {
+                xs.fill(0b0000_0000);
+            }
+        } else {
+            for xs in &mut self.buf {
+                xs.fill(0b1111_1111);
+            }
+        }
+
+        Ok(())
+    }
+}
 
 /// Driver for the `SH1107` OLED Display
 pub struct OledDriver<Device, DataCmdPin> {
@@ -20,7 +134,6 @@ pub struct OledDriver<Device, DataCmdPin> {
     dc: DataCmdPin,
 }
 
-#[allow(dead_code)]
 /// High level usage of the OLED Display
 impl<Device, DataCmdPin> OledDriver<Device, DataCmdPin>
 where
@@ -52,22 +165,9 @@ where
             }
         }
     }
-
-    pub fn present(&mut self, image: &[[u8; WIDTH as usize / 8]; HEIGHT as usize]) {
-        let width = WIDTH as u8;
-        let height = HEIGHT as u8;
-        self.set_page_addr(0); // ???
-        for y in 0..height {
-            self.set_column_addr(y);
-            for x in 0..(width / 8) {
-                self.data(image[y as usize][x as usize]);
-            }
-        }
-    }
 }
 
 /// Lower level usage of the display that maps directly to a HW command
-#[allow(dead_code)]
 impl<Device, DataCmdPin> OledDriver<Device, DataCmdPin>
 where
     Device: SpiDevice,
@@ -104,20 +204,20 @@ where
         self.reg(0xB0 + (page >> 4));
     }
 
-    fn nop(&mut self) {
+    fn _nop(&mut self) {
         self.reg(0xE3);
     }
 
     fn reg(&mut self, reg: u8) {
         self.dc.set_low().unwrap();
-        self.dev.write(&[reg]);
+        let _ = self.dev.write(&[reg]);
 
         self.dc.set_high().unwrap();
     }
 
     fn data(&mut self, byte: u8) {
         self.dc.set_high().unwrap();
-        self.dev.write(&[byte]);
+        let _ = self.dev.write(&[byte]);
     }
 
     fn reset<Pin>(&mut self, rst: &mut Pin, delay: &mut Delay)

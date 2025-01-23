@@ -35,7 +35,6 @@ pub struct Image<Pixel = Rgb565> {
     height: u16,
 }
 
-#[allow(dead_code)]
 impl<Pixel> Image<Pixel>
 where
     Pixel: Pod,
