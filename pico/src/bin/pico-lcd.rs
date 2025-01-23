@@ -25,7 +25,7 @@ use simulations::Life;
 
 use pico::*;
 
-#[rp_pico::entry]
+#[cortex_m_rt::entry]
 fn main() -> ! {
     // Init Heap
     {

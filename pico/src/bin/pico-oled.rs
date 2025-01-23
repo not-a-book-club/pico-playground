@@ -8,8 +8,7 @@ use panic_probe as _;
 
 // Embedded things
 use cortex_m::delay::Delay;
-#[allow(unused)]
-use embedded_hal::digital::{InputPin, OutputPin};
+use embedded_hal::digital::InputPin;
 use embedded_hal_bus::spi::ExclusiveDevice;
 use hal::fugit::*;
 use hal::prelude::*;
@@ -23,7 +22,7 @@ use rand::{rngs::SmallRng, SeedableRng};
 
 use pico::*;
 
-#[rp_pico::entry]
+#[cortex_m_rt::entry]
 fn main() -> ! {
     // Init Heap
     {
