@@ -4,7 +4,7 @@
 // Runtime things
 extern crate alloc;
 use defmt_rtt as _;
-use panic_probe as _;
+// use panic_probe as _;
 
 // Embedded things
 use cortex_m::delay::Delay;
@@ -21,6 +21,25 @@ use defmt::{debug, error, info, warn};
 use rand::{rngs::SmallRng, SeedableRng};
 
 use pico::*;
+
+// Reboot to BOOTSEL on panic
+#[panic_handler]
+fn panic(info: &core::panic::PanicInfo) -> ! {
+    use core::sync::atomic::*;
+
+    static PANICKED: AtomicBool = AtomicBool::new(false);
+
+    cortex_m::interrupt::disable();
+
+    // Guard against infinite recursion, just in case.
+    if !PANICKED.load(Ordering::Relaxed) {
+        PANICKED.store(true, Ordering::Relaxed);
+        error!("[PANIC]: {:?}", info);
+    }
+
+    hal::rom_data::reset_to_usb_boot(0, 0);
+    cortex_m::asm::udf();
+}
 
 #[cortex_m_rt::entry]
 fn main() -> ! {
