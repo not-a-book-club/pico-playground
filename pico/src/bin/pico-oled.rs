@@ -12,6 +12,7 @@ use cortex_m::delay::Delay;
 use embedded_graphics::mono_font::{ascii, MonoTextStyle};
 use embedded_graphics::prelude::*;
 use embedded_graphics::primitives::*;
+use embedded_graphics::text::renderer::CharacterStyle;
 use embedded_graphics::text::{renderer::TextRenderer, Text};
 use embedded_hal::digital::InputPin;
 use hal::fugit::*;
@@ -24,7 +25,7 @@ use defmt::{debug, error, info, warn};
 
 use rand::{rngs::SmallRng, SeedableRng};
 
-use pico::*;
+use pico::oled::{self, BinaryColor, OledDriver};
 
 // Reboot to BOOTSEL on panic
 #[panic_handler]
@@ -183,9 +184,61 @@ fn main() -> ! {
         .fill_color(oled::BinaryColor::On)
         .build();
 
+    // Draw a title screen of sorts
+    {
+        let width = oled::WIDTH as i32;
+        let height = oled::HEIGHT as i32;
+
+        // Fullscreen white-border
+        let r = 4;
+        let screen_border = RoundedRectangle::with_equal_corners(
+            Rectangle::new(Point::new(0, 0), Size::new(width as u32, height as u32)),
+            Size::new(r, r),
+        );
+        let _ = screen_border.draw_styled(&style_white_border, &mut display);
+
+        // Draw "bitflipper", stylized
+        {
+            let mut bit_style = MonoTextStyle::new(&ascii::FONT_6X13_BOLD, BinaryColor::Off);
+            bit_style.set_background_color(Some(BinaryColor::On));
+            let bit = Text::new("BIT", Point::new(38, 32), bit_style);
+            let _ = bit.draw(&mut display);
+
+            let flipper_style = MonoTextStyle::new(&ascii::FONT_6X13_ITALIC, BinaryColor::On);
+            let flipper = Text::new("flipper", Point::new(58, 35), flipper_style);
+            let _ = flipper.draw(&mut display);
+        }
+
+        // Draw some lines below everything
+        for i in 0..3 {
+            let xs = width * 1 / 8 + 3 * (3 - i);
+            let xe = width * 7 / 8 - 3 * (3 - i);
+            let y = 3 * height / 4 + (i - 1) * 5;
+            let line0 = Line::new(Point::new(xs, y), Point::new(xe, y));
+            let _ = line0.draw_styled(&style_white_border, &mut display);
+        }
+
+        // Animate a load bar (this goes too far but it's hilarious so leave it alone please)
+        let time = 16; // units of 100ms
+        let xs = width * 1 / 16;
+        let xe = width * 1 / 16;
+        let y = height / 5;
+        for i in 1..=time {
+            let _ = Line::new(Point::new(xs, y), Point::new(xe + i * width / 16, y))
+                .draw_styled(&style_white_border, &mut display);
+
+            display.flush();
+
+            delay.delay_ms(100);
+        }
+
+        display.flush();
+        display.clear_black();
+    }
+
     let style_text = MonoTextStyle::new(&ascii::FONT_5X8, oled::BinaryColor::On);
     let line_height = style_text.line_height() as i32;
-    let line_margin = line_height / 3;
+    let _line_margin = line_height / 3;
 
     let mut rng = SmallRng::from_seed(core::array::from_fn(|_| 17));
     let mut sim = simulations::Life::new(oled::WIDTH as usize, oled::HEIGHT as usize);
