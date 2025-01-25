@@ -1,5 +1,6 @@
 #![no_std]
 #![no_main]
+#![allow(clippy::identity_op)]
 
 // Runtime things
 extern crate alloc;
