@@ -6,6 +6,10 @@ edition = "2021"
 [dependencies]
 rand = { version = "0.8", default-features = false }
 
+[dev-dependencies]
+rstest = "0.24"
+pretty_assertions = "1.4"
+
 [features]
 default = ["std"]
 std = []
