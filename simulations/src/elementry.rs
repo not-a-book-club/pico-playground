@@ -1,12 +1,12 @@
-use alloc::{vec, vec::Vec};
+use crate::BitGrid;
 
 #[derive(Clone)]
 pub struct Elementry {
     /// Current state of the simulation
-    cells: Vec<u8>,
+    cells: BitGrid,
 
     /// Shadow copy of cells used when stepping the simulation
-    shadow: Vec<u8>,
+    shadow: BitGrid,
 
     rule: u8,
     width: i16,
@@ -16,15 +16,11 @@ pub struct Elementry {
 impl Elementry {
     /// Creates a new `Elementry` simulation with the given dimensions where all cells are initially **dead**.
     pub fn new(rule: u8, width: usize) -> Self {
-        let cells = vec![0; (width + 7) / 8];
-        let shadow = cells.clone();
-        let width = width as i16;
-
         Self {
-            cells,
-            shadow,
+            cells: BitGrid::new(width, 1),
+            shadow: BitGrid::new(width, 1),
             rule,
-            width,
+            width: width as i16,
         }
     }
 
@@ -38,41 +34,11 @@ impl Elementry {
     }
 
     pub fn get(&self, x: i16) -> bool {
-        // Toggle this enable/disable wrapping along the edge
-        let x = (x + self.width()) % self.width();
-        if 0 <= x && x < self.width() {
-            let x0 = x / 8;
-            let x1 = x % 8;
-            let mask = 1 << x1;
-
-            (self.cells[x0 as usize] & mask) != 0
-        } else {
-            false
-        }
+        self.cells.get(x, 1)
     }
 
     pub fn set(&mut self, x: i16, is_alive: bool) {
-        // Toggle this enable/disable wrapping along the edge
-        let x = (x + self.width()) % self.width();
-        if 0 <= x && x < self.width() {
-            let x0 = x / 8;
-            let x1 = x % 8;
-            let mask = 1 << x1;
-
-            self.cells[x0 as usize] &= !mask;
-            self.cells[x0 as usize] |= (is_alive as u8) << x1;
-        }
-    }
-
-    fn set_shadow(&mut self, x: i16, is_alive: bool) {
-        if 0 <= x && x < self.width() {
-            let x0 = x / 8;
-            let x1 = x % 8;
-            let mask = 1 << x1;
-
-            self.shadow[x0 as usize] &= !mask;
-            self.shadow[x0 as usize] |= (is_alive as u8) << x1;
-        }
+        self.cells.set(x, 1, is_alive);
     }
 
     /// Steps the simulation once, returning the number of cells updated
@@ -89,7 +55,7 @@ impl Elementry {
             let mask = 1 << c;
 
             let is_alive = (self.rule & mask) != 0;
-            self.set_shadow(x, is_alive);
+            self.shadow.set(x, 1, is_alive);
 
             count += (old != is_alive) as u32;
         }
@@ -101,17 +67,18 @@ impl Elementry {
 
     /// Marks all cells as **dead**
     pub fn clear(&mut self) {
-        self.cells.fill(0);
+        self.cells.as_mut_bytes().fill(0);
     }
 
     /// Marks all cells as **alive**
     pub fn clear_alive(&mut self) {
-        self.cells.fill(0xff);
+        self.cells.as_mut_bytes().fill(0xff);
     }
 
     /// Set all cells to **alive** or **dead** using the provided rng.
     pub fn clear_random(&mut self, rng: &mut impl rand::Rng) {
-        for chunk in self.cells.chunks_mut(4) {
+        let bytes: &mut [u8] = self.cells.as_mut_bytes();
+        for chunk in bytes.chunks_mut(4) {
             let rand_bytes = rng.next_u32().to_le_bytes();
             chunk.copy_from_slice(&rand_bytes[..chunk.len()]);
         }

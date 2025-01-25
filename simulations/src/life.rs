@@ -1,15 +1,13 @@
-// TODO: If we can alloc on the Pico, we should do that instead.
-const MAX_ROWS: usize = 255;
-const MAX_COLS: usize = 255;
+use crate::BitGrid;
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct Life {
     /// Current state of the simulation
-    cells: [[u8; (MAX_COLS + 7) / 8]; MAX_ROWS],
+    cells: BitGrid,
 
     /// Shadow copy of cells used when stepping the simulation
     // TODO: I think it's faster to store this in the object rather than each call into step, but need to benchmark
-    shadow: [[u8; (MAX_COLS + 7) / 8]; MAX_ROWS],
+    shadow: BitGrid,
 
     width: i16,
     height: i16,
@@ -19,18 +17,9 @@ pub struct Life {
 impl Life {
     /// Creates a new `Life` simulation with the given dimensions where all cells are initially **dead**.
     pub fn new(width: usize, height: usize) -> Self {
-        debug_assert!(
-            width <= MAX_COLS,
-            "width={width} but must be <= MAX_COLS={MAX_COLS}"
-        );
-        debug_assert!(
-            height <= MAX_ROWS,
-            "height={height} but must be <= MAX_ROWS={MAX_ROWS}"
-        );
-
         Self {
-            cells: [[0; (MAX_COLS + 7) / 8]; MAX_ROWS],
-            shadow: [[0; (MAX_COLS + 7) / 8]; MAX_ROWS],
+            cells: BitGrid::new(width, height),
+            shadow: BitGrid::new(width, height),
             width: width as i16,
             height: height as i16,
         }
@@ -51,14 +40,7 @@ impl Life {
     /// Out of bounds access wrap around.
     #[track_caller]
     pub fn get(&self, x: i16, y: i16) -> bool {
-        let x = ((x + self.width()) % self.width()) as usize;
-        let y = ((y + self.height()) % self.height()) as usize;
-
-        let x0 = x / 8;
-        let x1 = x % 8;
-        let mask = 1 << x1;
-
-        (self.cells[y][x0] & mask) != 0
+        self.cells.get(x, y)
     }
 
     /// Sets the cell at `(x, y)` to either **alive** or **dead**.
@@ -85,45 +67,7 @@ impl Life {
     /// ```
     #[track_caller]
     pub fn set(&mut self, x: i16, y: i16, is_alive: bool) -> bool {
-        let x = ((x + self.width()) % self.width()) as usize;
-        let y = ((y + self.height()) % self.height()) as usize;
-
-        let x0 = x / 8;
-        let x1 = x % 8;
-        let mask = 1 << x1;
-
-        let old = (self.cells[y][x0] & mask) != 0;
-
-        // Clear existing bit
-        self.cells[y][x0] &= !mask;
-
-        // Write newe one
-        self.cells[y][x0] |= (is_alive as u8) << x1;
-
-        old
-    }
-
-    /// Sets a cell in the shadow cells to be **alive** or **dead**.
-    ///
-    /// This is identical to [`set()`](Life::set) except it operates on [`shadow`](Life::shadow).
-    #[track_caller]
-    fn set_shadow(&mut self, x: i16, y: i16, is_alive: bool) -> bool {
-        let x = ((x + self.width()) % self.width()) as usize;
-        let y = ((y + self.height()) % self.height()) as usize;
-
-        let x0 = x / 8;
-        let x1 = x % 8;
-        let mask = 1 << x1;
-
-        let old = (self.shadow[y][x0] & mask) != 0;
-
-        // Clear existing bit
-        self.shadow[y][x0] &= !mask;
-
-        // Write newe one
-        self.shadow[y][x0] |= (is_alive as u8) << x1;
-
-        old
+        self.cells.set(x, y, is_alive)
     }
 
     /// Steps the simulation once, returning the number of cells updated
@@ -156,7 +100,7 @@ impl Life {
                     live_count == 3
                 };
 
-                self.set_shadow(x, y, is_alive);
+                self.shadow.set(x, y, is_alive);
 
                 if self.get(x, y) != is_alive {
                     count += 1;
@@ -164,7 +108,7 @@ impl Life {
             }
         }
 
-        self.cells = self.shadow;
+        core::mem::swap(&mut self.cells, &mut self.shadow);
 
         count
     }
@@ -180,8 +124,7 @@ impl Life {
 
     /// Set all cells to **alive** or **dead** using the provided rng.
     pub fn clear_random(&mut self, rng: &mut impl rand::Rng) {
-        let bytes: &mut [u8] = self.cells.as_flattened_mut();
-
+        let bytes: &mut [u8] = self.cells.as_mut_bytes();
         for chunk in bytes.chunks_mut(4) {
             let rand_bytes = rng.next_u32().to_le_bytes();
             chunk.copy_from_slice(&rand_bytes[..chunk.len()]);
