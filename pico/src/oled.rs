@@ -12,12 +12,12 @@ use embedded_hal::spi::SpiDevice;
 // TODO: This is our specific model and not general.
 //       We should consider taking these as either const generics on `Display`, or runtime values
 //       The physical dimensions of the screen change across specific parts, but we always have 128x128 bits of memory. I think.
-pub const WIDTH: u16 = 128;
-pub const HEIGHT: u16 = 64;
+const WIDTH: u16 = 128;
+const HEIGHT: u16 = 64;
 
 /// A `Display` represents the interface to the Pico-OLED-1.3 `SH1107` Display
 ///
-/// For lower level control of the display, see [`OledDriver`]
+/// For lower level control of the display, see [`SH1107Driver`]
 ///
 /// ## The "Framebuffer"
 /// The display object owns its own cache of image data, the framebuffer, that may be out of
@@ -27,7 +27,7 @@ pub const HEIGHT: u16 = 64;
 /// The display RAM is populated from the framebuffer, but the framebuffer is never
 /// updated by reading back the display RAM.
 pub struct Display<Device, DataCmdPin> {
-    driver: OledDriver<Device, DataCmdPin>,
+    driver: SH1107Driver<Device, DataCmdPin>,
     framebuffer: BitGrid,
 }
 
@@ -40,17 +40,27 @@ where
     ///
     /// The framebuffer is initialized to all `false` values.
     /// See [`Display::clear_set`] and [`Display::clear_unset`] for quick ways to clear the display.
-    pub fn new(driver: OledDriver<Device, DataCmdPin>) -> Self {
+    pub fn new(driver: SH1107Driver<Device, DataCmdPin>) -> Self {
         Self {
             driver,
             framebuffer: BitGrid::new(WIDTH as usize, HEIGHT as usize),
         }
     }
 
+    /// The width in pixels of the display
+    pub const fn width(&self) -> u16 {
+        WIDTH
+    }
+
+    /// The height in pixels of the display
+    pub const fn height(&self) -> u16 {
+        HEIGHT
+    }
+
     /// Returns whether the pixel at the given coordinate is set or unset.
     ///
     /// The Display can adjust the set/unset color mapping.
-    /// See [`OledDriver::inverse_on`] and [`OledDriver::inverse_off`] for more details.
+    /// See [`SH1107Driver::inverse_on`] and [`SH1107Driver::inverse_off`] for more details.
     pub fn get(&self, x: i16, y: i16) -> bool {
         self.framebuffer.get(x, y)
     }
@@ -58,7 +68,7 @@ where
     /// Sets the pixel at the given coordinate.
     ///
     /// The Display can adjust the set/unset color mapping.
-    /// See [`OledDriver::inverse_on`] and [`OledDriver::inverse_off`] for more details.
+    /// See [`SH1107Driver::inverse_on`] and [`SH1107Driver::inverse_off`] for more details.
     ///
     /// # Return Value
     /// Returns the previous state of the pixel
@@ -75,7 +85,7 @@ where
     /// ```
     ///
     /// The Display can adjust the set/unset color mapping.
-    /// See [`OledDriver::inverse_on`] and [`OledDriver::inverse_off`] for more details.
+    /// See [`SH1107Driver::inverse_on`] and [`SH1107Driver::inverse_off`] for more details.
     ///
     /// # Return Value
     /// Returns the previous state of the pixel
@@ -87,7 +97,7 @@ where
     ///
     /// This behaves as if `self.set(x, y, false)` was called for every pixel.
     ///
-    /// Whether this is black or white depends on the display's inversion mode. See [`OledDriver::inverse_on`].
+    /// Whether this is black or white depends on the display's inversion mode. See [`SH1107Driver::inverse_on`].
     pub fn clear_unset(&mut self) {
         let _ = self.clear(BinaryColor::Off);
     }
@@ -96,7 +106,7 @@ where
     ///
     /// This behaves as if `self.set(x, y, true)` was called for every pixel.
     ///
-    /// Whether this is black or white depends on the display's inversion mode. See [`OledDriver::inverse_on`].
+    /// Whether this is black or white depends on the display's inversion mode. See [`SH1107Driver::inverse_on`].
     pub fn clear_set(&mut self) {
         let _ = self.clear(BinaryColor::On);
     }
@@ -176,7 +186,7 @@ where
 }
 
 /// Driver for the `SH1107` OLED Display
-pub struct OledDriver<Device, DataCmdPin> {
+pub struct SH1107Driver<Device, DataCmdPin> {
     /// SPI Device for reading+writing
     dev: Device,
 
@@ -185,7 +195,7 @@ pub struct OledDriver<Device, DataCmdPin> {
 }
 
 /// Higher level usage of the OLED Display
-impl<Device, DataCmdPin> OledDriver<Device, DataCmdPin>
+impl<Device, DataCmdPin> SH1107Driver<Device, DataCmdPin>
 where
     Device: SpiDevice,
     DataCmdPin: OutputPin,
@@ -227,9 +237,9 @@ where
 
 /// Lower level usage of the display that maps directly to one or more HW command(s)
 ///
-/// These methods are ordered by their command value. For example, [`OledDriver::set_column_addr`] comes first
+/// These methods are ordered by their command value. For example, [`SH1107Driver::set_column_addr`] comes first
 /// because its command code is any of `0x00` through `0x17`.
-impl<Device, DataCmdPin> OledDriver<Device, DataCmdPin>
+impl<Device, DataCmdPin> SH1107Driver<Device, DataCmdPin>
 where
     Device: SpiDevice,
     DataCmdPin: OutputPin,
@@ -281,7 +291,7 @@ where
     /// - a `true` pixel is white
     /// - a `false` pixel is black
     ///
-    /// See: [`OledDriver::inverse_on`]
+    /// See: [`SH1107Driver::inverse_on`]
     pub fn inverse_off(&mut self) {
         self.reg(0xA6);
     }
@@ -295,7 +305,7 @@ where
     /// - a `true` pixel is black
     /// - a `false` pixel is white
     ///
-    /// See: [`OledDriver::inverse_off`]
+    /// See: [`SH1107Driver::inverse_off`]
     pub fn inverse_on(&mut self) {
         self.reg(0xA7);
     }
@@ -320,7 +330,7 @@ where
 
     /// Turns the display on and resumes normal activity
     ///
-    /// See: [`OledDriver::display_off`].
+    /// See: [`SH1107Driver::display_off`].
     pub fn display_on(&mut self) {
         self.reg(0xAF);
     }

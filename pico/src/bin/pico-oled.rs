@@ -27,7 +27,7 @@ use defmt::{debug, error, info, warn};
 
 use rand::{rngs::SmallRng, SeedableRng};
 
-use pico::oled::{self, OledDriver};
+use pico::oled::{Display, SH1107Driver};
 
 // Reboot to BOOTSEL on panic
 #[panic_handler]
@@ -147,11 +147,11 @@ fn main() -> ! {
     let timer = hal::Timer::new(pac.TIMER, &mut pac.RESETS, &clocks);
     let spi_dev = embedded_hal_bus::spi::ExclusiveDevice::new(spi_bus, cs, timer).unwrap();
 
-    let driver = OledDriver::new(spi_dev, dc, &mut rst, &mut delay);
-    let mut display = oled::Display::new(driver);
+    let driver = SH1107Driver::new(spi_dev, dc, &mut rst, &mut delay);
+    let mut display = Display::new(driver);
 
-    let view_width = oled::WIDTH as u32;
-    let view_height = oled::HEIGHT as u32 - 15;
+    let view_width = display.width() as u32;
+    let view_height = display.height() as u32 - 15;
     let style_white_border = PrimitiveStyleBuilder::new()
         .stroke_width(1)
         .stroke_color(BinaryColor::On)
@@ -170,8 +170,8 @@ fn main() -> ! {
 
     // Draw a title screen of sorts
     {
-        let width = oled::WIDTH as i32;
-        let height = oled::HEIGHT as i32;
+        let width = display.width() as i32;
+        let height = display.height() as i32;
 
         // Fullscreen white-border
         let r = 4;
@@ -243,7 +243,7 @@ fn main() -> ! {
     let _line_margin = line_height / 3;
 
     let mut rng = SmallRng::from_seed(core::array::from_fn(|_| 17));
-    let mut sim = simulations::Life::new(oled::WIDTH as usize, oled::HEIGHT as usize);
+    let mut sim = simulations::Life::new(display.width() as usize, display.height() as usize);
 
     let mut needs_refresh = true;
     let mut state = ScreenState::Conway;
@@ -304,7 +304,7 @@ fn main() -> ! {
 
                     // Draw!
                     if needs_refresh {
-                        let base_y = (oled::HEIGHT as u32 - view_height) as i32;
+                        let base_y = (display.height() as u32 - view_height) as i32;
 
                         // Draw a nice title
                         let text = Text::new(
