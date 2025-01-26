@@ -16,7 +16,7 @@ pub use embedded_graphics::pixelcolor::BinaryColor;
 /// A `Display` represents the interface to the Pico-OLED-1.3 SH1107 Display
 ///
 /// The display object owns its own framebuffer of data that may be modified before it is sent
-/// to the display driver. Always call Display::flush() when you're done modifying it to ensure that
+/// to the display driver. Always call [`Display::flush()`] when you're done modifying it to ensure that
 /// the physical display has been updated.
 pub struct Display<Device, DataCmdPin> {
     driver: OledDriver<Device, DataCmdPin>,
