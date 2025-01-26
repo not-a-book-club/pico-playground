@@ -11,6 +11,7 @@ use alloc::format;
 // Embedded things
 use cortex_m::delay::Delay;
 use embedded_graphics::mono_font::{ascii, MonoTextStyle};
+use embedded_graphics::pixelcolor::BinaryColor;
 use embedded_graphics::prelude::*;
 use embedded_graphics::primitives::*;
 use embedded_graphics::text::renderer::CharacterStyle;
@@ -26,7 +27,7 @@ use defmt::{debug, error, info, warn};
 
 use rand::{rngs::SmallRng, SeedableRng};
 
-use pico::oled::{self, BinaryColor, OledDriver};
+use pico::oled::{self, OledDriver};
 
 // Reboot to BOOTSEL on panic
 #[panic_handler]
@@ -153,18 +154,18 @@ fn main() -> ! {
     let view_height = oled::HEIGHT as u32 - 15;
     let style_white_border = PrimitiveStyleBuilder::new()
         .stroke_width(1)
-        .stroke_color(oled::BinaryColor::On)
-        // .fill_color(oled::BinaryColor::Off)
+        .stroke_color(BinaryColor::On)
+        // .fill_color(BinaryColor::Off)
         .build();
     let _style_fill_black = PrimitiveStyleBuilder::new()
         .stroke_width(1)
-        .stroke_color(oled::BinaryColor::On)
-        .fill_color(oled::BinaryColor::On)
+        .stroke_color(BinaryColor::On)
+        .fill_color(BinaryColor::On)
         .build();
     let _style_fill_white = PrimitiveStyleBuilder::new()
         .stroke_width(1)
-        .stroke_color(oled::BinaryColor::On)
-        .fill_color(oled::BinaryColor::On)
+        .stroke_color(BinaryColor::On)
+        .fill_color(BinaryColor::On)
         .build();
 
     // Draw a title screen of sorts
@@ -236,8 +237,8 @@ fn main() -> ! {
         }
     }
 
-    let style_text = MonoTextStyle::new(&ascii::FONT_5X8, oled::BinaryColor::On);
-    let style_text_tiny = MonoTextStyle::new(&ascii::FONT_4X6, oled::BinaryColor::On);
+    let style_text = MonoTextStyle::new(&ascii::FONT_5X8, BinaryColor::On);
+    let style_text_tiny = MonoTextStyle::new(&ascii::FONT_4X6, BinaryColor::On);
     let line_height = style_text.line_height() as i32;
     let _line_margin = line_height / 3;
 
