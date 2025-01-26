@@ -233,7 +233,7 @@ fn main() -> ! {
         }
 
         display.flush();
-        display.clear_black();
+        display.clear_unset();
     }
 
     let style_text = MonoTextStyle::new(&ascii::FONT_5X8, oled::BinaryColor::On);

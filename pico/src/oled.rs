@@ -1,5 +1,7 @@
 #![allow(non_upper_case_globals)]
 
+use simulations::BitGrid;
+
 use cortex_m::delay::Delay;
 use embedded_graphics::prelude::*;
 use embedded_graphics::primitives::Rectangle;
@@ -11,10 +13,14 @@ pub const HEIGHT: u16 = 64;
 
 pub use embedded_graphics::pixelcolor::BinaryColor;
 
-//todo
+/// A `Display` represents the interface to the Pico-OLED-1.3 SH1107 Display
+///
+/// The display object owns its own framebuffer of data that may be modified before it is sent
+/// to the display driver. Always call Display::flush() when you're done modifying it to ensure that
+/// the physical display has been updated.
 pub struct Display<Device, DataCmdPin> {
     driver: OledDriver<Device, DataCmdPin>,
-    buf: [[u8; WIDTH as usize / 8]; HEIGHT as usize],
+    framebuffer: BitGrid,
 }
 
 impl<Device, DataCmdPin> Display<Device, DataCmdPin>
@@ -25,24 +31,20 @@ where
     pub fn new(driver: OledDriver<Device, DataCmdPin>) -> Self {
         Self {
             driver,
-            buf: [[0u8; WIDTH as usize / 8]; HEIGHT as usize],
+            framebuffer: BitGrid::new(WIDTH as usize, HEIGHT as usize),
         }
     }
 
     pub fn get(&self, x: i16, y: i16) -> bool {
-        (self.buf[y as usize][x as usize / 8] & (1 << (x % 8))) != 0
+        self.framebuffer.get(x, y)
     }
 
     pub fn set(&mut self, x: i16, y: i16, c: bool) {
-        self.buf[y as usize][x as usize / 8] &= !(1 << (x % 8));
-        if c {
-            self.buf[y as usize][x as usize / 8] |= 1 << (x % 8);
-        }
+        self.framebuffer.set(x, y, c);
     }
 
-    pub fn flip(&mut self, x: u8, y: u8) {
-        self.buf[y as usize][x as usize / 8] &= !(1 << (x % 8));
-        self.buf[y as usize][x as usize / 8] ^= 1 << (x % 8);
+    pub fn flip(&mut self, x: i16, y: i16) {
+        self.framebuffer.flip(x, y);
     }
 
     pub fn get_color(&self, x: i16, y: i16) -> BinaryColor {
@@ -53,25 +55,41 @@ where
         self.set(x, y, c.is_on());
     }
 
-    pub fn clear_black(&mut self) {
+    /// Sets all "pixels" to unset.
+    ///
+    /// This behaves as if `self.set(x, y, false)` was called for every pixel.
+    ///
+    /// Whether this is black or white depends on the display's inversion mode. See [`OledDriver::inverse_on`].
+    pub fn clear_unset(&mut self) {
         let _ = self.clear(BinaryColor::Off);
     }
 
-    pub fn clear_white(&mut self) {
+    /// Sets all "pixels" to set.
+    ///
+    /// This behaves as if `self.set(x, y, true)` was called for every pixel.
+    ///
+    /// Whether this is black or white depends on the display's inversion mode. See [`OledDriver::inverse_on`].
+    pub fn clear_set(&mut self) {
         let _ = self.clear(BinaryColor::On);
     }
 
     pub fn flush(&mut self) {
-        let width = WIDTH as u8;
-        let height = HEIGHT as u8;
+        let width = WIDTH as i16;
+        let height = HEIGHT as i16;
+
+        let bytes = self.framebuffer.as_bytes();
         self.driver.set_page_addr(0); // ???
         for y in 0..height {
-            self.driver.set_column_addr(y);
-            for x in (0..(width / 8)).rev() {
-                let rev = self.buf[y as usize][x as usize].reverse_bits();
-                self.driver.data(rev);
+            self.driver.set_column_addr(y as u8);
+            for x in (0..width).step_by(8).rev() {
+                let (idx, _) = self.framebuffer.idx(x, y);
+                self.driver.data(bytes[idx].reverse_bits());
             }
         }
+    }
+
+    pub fn free(self) -> (Device, DataCmdPin) {
+        self.driver.free()
     }
 }
 impl<Device, DataCmdPin> Dimensions for Display<Device, DataCmdPin>
@@ -112,13 +130,9 @@ where
 
     fn clear(&mut self, color: Self::Color) -> Result<(), Self::Error> {
         if color.is_off() {
-            for xs in &mut self.buf {
-                xs.fill(0b0000_0000);
-            }
+            self.framebuffer.as_mut_bytes().fill(0b0000_0000);
         } else {
-            for xs in &mut self.buf {
-                xs.fill(0b1111_1111);
-            }
+            self.framebuffer.as_mut_bytes().fill(0b1111_1111);
         }
 
         Ok(())
@@ -164,6 +178,11 @@ where
                 self.data(row);
             }
         }
+    }
+
+    pub fn free(self) -> (Device, DataCmdPin) {
+        let Self { dev, dc } = self;
+        (dev, dc)
     }
 }
 
