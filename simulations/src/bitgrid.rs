@@ -76,10 +76,10 @@ impl BitGrid {
         &mut self.buf
     }
 
-    pub fn idx(&self, x: i16, y: i16) -> (usize, u8) {
+    pub fn idx(&self, mut x: i16, mut y: i16) -> (usize, u8) {
         // Wrap x and y along their axis
-        let x = (x + self.width()) % self.width();
-        let y = (y + self.height()) % self.height();
+        x = (x + self.width()) % self.width();
+        y = (y + self.height()) % self.height();
 
         let idx = (x / 8) + y * ((self.width() + 7) / 8);
         let bit = x % 8;

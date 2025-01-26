@@ -184,6 +184,7 @@ where
     DataCmdPin: OutputPin,
 {
     type Color = BinaryColor;
+    // TODO: Real error type
     type Error = ();
 
     fn draw_iter<I>(&mut self, pixels: I) -> Result<(), Self::Error>

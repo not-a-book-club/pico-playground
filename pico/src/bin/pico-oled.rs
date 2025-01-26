@@ -97,9 +97,9 @@ fn main() {
     let cs = pins.gpio9.into_push_pull_output();
     let mut rst = pins.gpio12.into_push_pull_output();
 
-    // Note: key0 on the board
-    let mut btn_a = pins.gpio15.into_pull_up_input();
     // Note: key1 on the board
+    let mut btn_a = pins.gpio15.into_pull_up_input();
+    // Note: key0 on the board
     let mut btn_b = pins.gpio17.into_pull_up_input();
 
     // LED on the board - we use this mostly for proof-of-life
@@ -220,9 +220,11 @@ fn main() {
         for i in 0.. {
             let a: bool = btn_a.is_low().unwrap();
             let b: bool = btn_b.is_low().unwrap();
+
+            // If EITHER A or B are pressed, move on to the next screen
             if a || b {
-                // If EITHER A or B are pressed, load the main scene.
-                // Otherwise, load credits!
+                // If A is pressed, load the main screen
+                // Otherwise, we'll jump to credits
                 load_main_scene = a;
                 break;
             }
