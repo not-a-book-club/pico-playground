@@ -3,21 +3,29 @@
 use simulations::BitGrid;
 
 use cortex_m::delay::Delay;
+use embedded_graphics::pixelcolor::BinaryColor;
 use embedded_graphics::prelude::*;
 use embedded_graphics::primitives::Rectangle;
 use embedded_hal::digital::OutputPin;
 use embedded_hal::spi::SpiDevice;
 
+// TODO: This is our specific model and not general.
+//       We should consider taking these as either const generics on `Display`, or runtime values
+//       The physical dimensions of the screen change across specific parts, but we always have 128x128 bits of memory. I think.
 pub const WIDTH: u16 = 128;
 pub const HEIGHT: u16 = 64;
 
-pub use embedded_graphics::pixelcolor::BinaryColor;
-
-/// A `Display` represents the interface to the Pico-OLED-1.3 SH1107 Display
+/// A `Display` represents the interface to the Pico-OLED-1.3 `SH1107` Display
 ///
-/// The display object owns its own framebuffer of data that may be modified before it is sent
-/// to the display driver. Always call [`Display::flush()`] when you're done modifying it to ensure that
-/// the physical display has been updated.
+/// For lower level control of the display, see [`OledDriver`]
+///
+/// ## The "Framebuffer"
+/// The display object owns its own cache of image data, the framebuffer, that may be out of
+/// sync with the contents of the display's RAM. Always call [`Display::flush()`] when you're
+/// done drawing to ensure the display is up to date.
+///
+/// The display RAM is populated from the framebuffer, but the framebuffer is never
+/// updated by reading back the display RAM.
 pub struct Display<Device, DataCmdPin> {
     driver: OledDriver<Device, DataCmdPin>,
     framebuffer: BitGrid,
@@ -28,6 +36,10 @@ where
     Device: SpiDevice,
     DataCmdPin: OutputPin,
 {
+    /// Constructs a new Display interface from the hal driver object
+    ///
+    /// The framebuffer is initialized to all `false` values.
+    /// See [`Display::clear_set`] and [`Display::clear_unset`] for quick ways to clear the display.
     pub fn new(driver: OledDriver<Device, DataCmdPin>) -> Self {
         Self {
             driver,
@@ -35,24 +47,40 @@ where
         }
     }
 
+    /// Returns whether the pixel at the given coordinate is set or unset.
+    ///
+    /// The Display can adjust the set/unset color mapping.
+    /// See [`OledDriver::inverse_on`] and [`OledDriver::inverse_off`] for more details.
     pub fn get(&self, x: i16, y: i16) -> bool {
         self.framebuffer.get(x, y)
     }
 
-    pub fn set(&mut self, x: i16, y: i16, c: bool) {
-        self.framebuffer.set(x, y, c);
+    /// Sets the pixel at the given coordinate.
+    ///
+    /// The Display can adjust the set/unset color mapping.
+    /// See [`OledDriver::inverse_on`] and [`OledDriver::inverse_off`] for more details.
+    ///
+    /// # Return Value
+    /// Returns the previous state of the pixel
+    pub fn set(&mut self, x: i16, y: i16, c: bool) -> bool {
+        self.framebuffer.set(x, y, c)
     }
 
-    pub fn flip(&mut self, x: i16, y: i16) {
-        self.framebuffer.flip(x, y);
-    }
-
-    pub fn get_color(&self, x: i16, y: i16) -> BinaryColor {
-        self.get(x, y).into()
-    }
-
-    pub fn set_color(&mut self, x: i16, y: i16, c: BinaryColor) {
-        self.set(x, y, c.is_on());
+    /// Atomically flips the pixel at the given coordiante.
+    ///
+    /// This is logically equivilent to:
+    /// ```rust,no_run
+    /// let is_set = display.get(x, y);
+    /// display.set(x, y, !is_set);
+    /// ```
+    ///
+    /// The Display can adjust the set/unset color mapping.
+    /// See [`OledDriver::inverse_on`] and [`OledDriver::inverse_off`] for more details.
+    ///
+    /// # Return Value
+    /// Returns the previous state of the pixel
+    pub fn flip(&mut self, x: i16, y: i16) -> bool {
+        self.framebuffer.flip(x, y)
     }
 
     /// Sets all "pixels" to unset.
@@ -73,6 +101,10 @@ where
         let _ = self.clear(BinaryColor::On);
     }
 
+    /// Writes the full state of the framebuffer to the display
+    ///
+    /// This writes the full state of the framebuffer to the display. After this method returns,
+    /// the display should mimic the contents framebuffer.
     pub fn flush(&mut self) {
         let width = WIDTH as i16;
         let height = HEIGHT as i16;
@@ -88,10 +120,13 @@ where
         }
     }
 
+    /// Consume the Display object and recover its hal objects.
     pub fn free(self) -> (Device, DataCmdPin) {
         self.driver.free()
     }
 }
+
+// This trait is exposed from `embedded_graphics`
 impl<Device, DataCmdPin> Dimensions for Display<Device, DataCmdPin>
 where
     Device: SpiDevice,
@@ -108,6 +143,7 @@ where
     }
 }
 
+// This trait is exposed from `embedded_graphics`
 impl<Device, DataCmdPin> DrawTarget for Display<Device, DataCmdPin>
 where
     Device: SpiDevice,
@@ -122,7 +158,7 @@ where
     {
         for Pixel(Point { x, y }, c) in pixels.into_iter() {
             if x >= 0 && y >= 0 && x < WIDTH as i32 && y < HEIGHT as i32 {
-                self.set_color(x as i16, y as i16, c);
+                self.set(x as i16, y as i16, c.is_on());
             }
         }
         Ok(())
@@ -148,12 +184,13 @@ pub struct OledDriver<Device, DataCmdPin> {
     dc: DataCmdPin,
 }
 
-/// High level usage of the OLED Display
+/// Higher level usage of the OLED Display
 impl<Device, DataCmdPin> OledDriver<Device, DataCmdPin>
 where
     Device: SpiDevice,
     DataCmdPin: OutputPin,
 {
+    /// Construct a new driver object from its required SPI device and pins.
     pub fn new<Pin>(dev: Device, dc: DataCmdPin, rst: &mut Pin, delay: &mut Delay) -> Self
     where
         Pin: embedded_hal::digital::OutputPin,
@@ -167,6 +204,7 @@ where
         this
     }
 
+    /// Directly clears the display
     pub fn clear(&mut self) {
         let width = WIDTH as u8;
         let height = HEIGHT as u8;
@@ -180,53 +218,134 @@ where
         }
     }
 
+    /// Consume the Driver object and recover its hal objects.
     pub fn free(self) -> (Device, DataCmdPin) {
         let Self { dev, dc } = self;
         (dev, dc)
     }
 }
 
-/// Lower level usage of the display that maps directly to a HW command
+/// Lower level usage of the display that maps directly to one or more HW command(s)
+///
+/// These methods are ordered by their command value. For example, [`OledDriver::set_column_addr`] comes first
+/// because its command code is any of `0x00` through `0x17`.
 impl<Device, DataCmdPin> OledDriver<Device, DataCmdPin>
 where
     Device: SpiDevice,
     DataCmdPin: OutputPin,
 {
+    // We should keep these doc comments up to date with the datasheet command(s) they use and reference.
+    #![deny(missing_docs)]
+
+    /// Sets the column address
+    ///
+    /// # *1. Set Lower Column Address: (00H - 0FH)*
+    /// # *2. Set Higher Column Address: (10H - 17H)*
+    /// > Specify column address of display RAM. Divide the column address into
+    /// > 4 higher bits and 4 lower bits. Set each of them into successions.
+    /// > When the microprocessor repeats to access to the display RAM, the
+    /// > column address counter is incremented during each access until
+    /// > address 127 is accessed (In page addressing mode).
+    /// > The page address is not changed during this time.
     pub fn set_column_addr(&mut self, col: u8) {
         self.reg(0x00 + (col & 0x0f));
         self.reg(0x10 + (col >> 4));
     }
 
+    /// Sets the contrast value
+    ///
+    /// Bigger is brighter. The default contrast is `128`.
+    ///
+    /// # *4. Set Contrast Control Register: (Double Bytes Command)*
+    /// > The chip has 256 contrast steps from `0x00` to `0xFF`. The segment output
+    /// > current increases as the contrast step value increases.
+    /// > Segment output current setting:
+    /// >
+    /// > `ISEG = α/256 * IREF * scale_factor`
+    /// >
+    /// > Where:
+    /// > - `α` is contrast step
+    /// > - `IREF` is reference current equals 15.625μA
+    /// > - `scale_factor` == 32
     pub fn set_contrast(&mut self, contrast: u8) {
         self.reg(0x81);
         self.reg(contrast);
     }
 
+    /// Disables inverse mode
+    ///
+    /// When inverse mode is disabled, the image swaps black and white pixels without
+    /// affecting display RAM.
+    ///
+    /// When inverse mode is **OFF**:
+    /// - a `true` pixel is white
+    /// - a `false` pixel is black
+    ///
+    /// See: [`OledDriver::inverse_on`]
     pub fn inverse_off(&mut self) {
         self.reg(0xA6);
     }
 
+    /// Enables inverse mode
+    ///
+    /// When inverse mode is enabled, the image swaps black and white pixels without
+    /// affecting display RAM.
+    ///
+    /// When inverse mode is **ON**:
+    /// - a `true` pixel is black
+    /// - a `false` pixel is white
+    ///
+    /// See: [`OledDriver::inverse_off`]
     pub fn inverse_on(&mut self) {
         self.reg(0xA7);
     }
 
+    /// Turns the display off while keeping other functions active
+    ///
+    /// # *11. Display OFF/ON: (AEH - AFH)*
+    /// > When the display OFF command is executed, power saver mode will be entered.
+    /// >
+    /// > Sleep mode:
+    /// > This mode stops every operation of the OLED display system, and can reduce current consumption nearly to a static current
+    /// > value if no access is made from the microprocessor.
+    /// >
+    /// > The internal status in the sleep mode is as follows:
+    /// > 1. Stops the oscillator circuit and DC-DC circuit.
+    /// > 2. Stops the OLED drive and outputs Hz as the segment/common driver output.
+    /// > 3. Holds the display data and operation mode provided before the start of the sleep mode.
+    /// > 4. The MPU can access to the built-in display RAM.
     pub fn display_off(&mut self) {
         self.reg(0xAE);
     }
 
+    /// Turns the display on and resumes normal activity
+    ///
+    /// See: [`OledDriver::display_off`].
     pub fn display_on(&mut self) {
         self.reg(0xAF);
     }
 
+    /// Sets the page address
+    ///
+    /// # *12. Set Page Address: (B0H - BFH)*
+    /// Specify page address to load display RAM data to page address register.
+    /// Any RAM data bit can be accessed when its page address and column address
+    ///  are specified. The display remains unchanged even when the page address is changed.
     fn set_page_addr(&mut self, page: u8) {
         debug_assert!(page <= 0b1111);
         self.reg(0xB0 + (page >> 4));
     }
 
-    fn _nop(&mut self) {
+    /// No operation
+    ///
+    /// This does one thing: it sends the "do nothing" command to the device.
+    pub fn nop(&mut self) {
         self.reg(0xE3);
     }
 
+    /// Writes a byte over the interface with DC set low
+    ///
+    /// Leaves DC set high after returning.
     fn reg(&mut self, reg: u8) {
         self.dc.set_low().unwrap();
         let _ = self.dev.write(&[reg]);
@@ -234,11 +353,19 @@ where
         self.dc.set_high().unwrap();
     }
 
+    /// Writes a byte over the interface with DC set high
+    ///
+    /// Leaves DC set high after returning.
     fn data(&mut self, byte: u8) {
         self.dc.set_high().unwrap();
         let _ = self.dev.write(&[byte]);
     }
 
+    /// Resets the display and leaves it ready for commands
+    ///
+    /// We must call this before any useful interactions can happen.
+    ///
+    /// There are ~400ms of delays in this function.
     fn reset<Pin>(&mut self, rst: &mut Pin, delay: &mut Delay)
     where
         Pin: embedded_hal::digital::OutputPin,
@@ -255,25 +382,24 @@ where
         delay.delay_ms(100);
     }
 
+    /// First-time initialization with reasonable defaults
     fn init(&mut self, delay: &mut Delay) {
+        // TODO: All these reg() calls should be named commands on the driver
+        // TODO: We should better cite/document where this order comes from and what's necessary
+        //       It came from the sample code which is low-key sus fr fr.
+
         self.display_off();
 
-        // set lower column address
-        self.reg(0x00);
-        // set higher column address
-        self.reg(0x10);
+        self.set_column_addr(0);
 
-        // set page address
-        self.reg(0xB0);
+        self.set_page_addr(0);
 
         // set display start line
         self.reg(0xDC);
         self.reg(0x00);
 
-        // contract control
-        self.reg(0x81);
-        // 128
-        self.reg(0x6F);
+        self.set_contrast(128);
+
         //  Set Memory addressing mode (0x20/0x21)
         self.reg(0x21);
 
