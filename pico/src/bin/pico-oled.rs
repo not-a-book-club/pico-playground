@@ -122,12 +122,13 @@ fn main() -> ! {
     }
 
     // === OLED Specific Code Begins ==========================================
-
     let dc = pins.gpio8.into_push_pull_output();
     let cs = pins.gpio9.into_push_pull_output();
     let mut rst = pins.gpio12.into_push_pull_output();
 
+    // Note: key0 on the board
     let mut btn_a = pins.gpio15.into_pull_up_input();
+    // Note: key1 on the board
     let mut btn_b = pins.gpio17.into_pull_up_input();
 
     // LED on the board - we use this mostly for proof-of-life
@@ -144,25 +145,6 @@ fn main() -> ! {
     );
     let timer = hal::Timer::new(pac.TIMER, &mut pac.RESETS, &clocks);
     let spi_dev = embedded_hal_bus::spi::ExclusiveDevice::new(spi_bus, cs, timer).unwrap();
-
-    // Log some interesting data from ROM
-    unsafe {
-        use hal::rom_data as rom;
-
-        info!("\"{}\"", rom::copyright_string());
-        info!("rom_version_number: {}", rom::rom_version_number());
-
-        let fplib_start = rom::fplib_start();
-        let fplib_end = rom::fplib_end();
-        info!(
-            "fplib: {} bytes [0x{:08x}, 0x{:08x}]",
-            fplib_end.offset_from(fplib_start),
-            fplib_start,
-            fplib_end,
-        );
-
-        info!("bootrom git rev: {}", rom::git_revision());
-    }
 
     let driver = OledDriver::new(spi_dev, dc, &mut rst, &mut delay);
     let mut display = oled::Display::new(driver);
@@ -412,7 +394,8 @@ fn main() -> ! {
             _ => {
                 display.clear_unset();
                 let text = format!("TODO: {state:?}");
-                let _ = Text::new(&text, Point::new(16, 16), style_text).draw(&mut display);
+                let text = Text::new(&text, Point::new(16, 16), style_text);
+                let _ = text.draw(&mut display);
                 display.flush();
                 delay.delay_ms(1000);
 
