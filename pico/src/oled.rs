@@ -1,5 +1,3 @@
-#![allow(non_upper_case_globals)]
-
 use simulations::BitGrid;
 
 use cortex_m::delay::Delay;
