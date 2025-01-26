@@ -220,23 +220,6 @@ fn main() -> ! {
         display.clear_unset();
     }
 
-    #[derive(Copy, Clone, Debug)]
-    enum ScreenState {
-        Conway,
-        Info,
-        Filler,
-    }
-
-    impl ScreenState {
-        fn next(&mut self) {
-            *self = match self {
-                Self::Conway => Self::Info,
-                Self::Info => Self::Filler,
-                Self::Filler => Self::Conway,
-            }
-        }
-    }
-
     let style_text = MonoTextStyle::new(&ascii::FONT_5X8, BinaryColor::On);
     let style_text_tiny = MonoTextStyle::new(&ascii::FONT_4X6, BinaryColor::On);
     let line_height = style_text.line_height() as i32;
@@ -246,7 +229,7 @@ fn main() -> ! {
     let mut sim = simulations::Life::new(display.width() as usize, display.height() as usize);
 
     let mut needs_refresh = true;
-    let mut state = ScreenState::Conway;
+    let mut state = 0;
 
     // loop {
     //     led.set_high().unwrap();
@@ -255,9 +238,14 @@ fn main() -> ! {
     //     delay.delay_ms(500);
     // }
 
+    let mut conway_scene = pico::scene::ConwayScene::new(&display);
+
     'screens: loop {
+        // Delay when changing
+        delay.delay_ms(500);
+
         match state {
-            ScreenState::Conway => {
+            0 => {
                 display.clear_unset();
                 display.flush();
                 sim.clear_random(&mut rng);
@@ -272,8 +260,7 @@ fn main() -> ! {
 
                         // Press A to go to the next screen
                         (true, _) => {
-                            state.next();
-                            delay.delay_ms(500);
+                            state += 1;
                             continue 'screens;
                         }
 
@@ -337,7 +324,7 @@ fn main() -> ! {
                     }
                 }
             }
-            ScreenState::Info => {
+            1 => {
                 unsafe {
                     use hal::rom_data as rom;
 
@@ -376,7 +363,7 @@ fn main() -> ! {
 
                         // Press A to go to the next screen
                         (true, _) => {
-                            state.next();
+                            state += 1;
                             continue 'screens;
                         }
 
@@ -391,10 +378,51 @@ fn main() -> ! {
                 }
             }
 
+            2 => {
+                use pico::scene::*;
+
+                display.clear_unset();
+                display.flush();
+
+                let mut ctx = Context {
+                    rng: &mut rng,
+                    btn_a: false,
+                    btn_b: false,
+                };
+                conway_scene.init(&mut ctx);
+
+                loop {
+                    let mut ctx = Context {
+                        rng: &mut rng,
+                        btn_a: false,
+                        btn_b: false,
+                    };
+
+                    ctx.btn_a = btn_a.is_low().unwrap();
+                    ctx.btn_b = btn_b.is_low().unwrap();
+
+                    // Reset back to BOOTSEL so that the next cargo-run updates our code
+                    if ctx.btn_a && ctx.btn_b {
+                        hal::rom_data::reset_to_usb_boot(0, 0);
+                    }
+                    // Press A to go to the next screen
+                    else if ctx.btn_a && !ctx.btn_b {
+                        state += 1;
+                        conway_scene.deinit(&mut ctx);
+                        continue 'screens;
+                    } else {
+                        let needs_flush = conway_scene.update(&mut ctx, &mut display);
+                        if needs_flush {
+                            display.flush();
+                        }
+                    }
+                }
+            }
+
             // Copy and Paste this block when adding a new "screen"
             _ => {
                 display.clear_unset();
-                let text = format!("TODO: {state:?}");
+                let text = format!("TODO: state={state:?}");
                 let text = Text::new(&text, Point::new(16, 16), style_text);
                 let _ = text.draw(&mut display);
                 display.flush();
@@ -410,8 +438,12 @@ fn main() -> ! {
 
                         // Press A to go to the next screen
                         (true, _) => {
-                            state.next();
-                            delay.delay_ms(500);
+                            // Do this:
+                            // state += 1;
+                            // continue 'screens;
+
+                            // Not this:
+                            state = 0;
                             continue 'screens;
                         }
 
