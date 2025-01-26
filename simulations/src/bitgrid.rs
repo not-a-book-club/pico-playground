@@ -52,6 +52,18 @@ impl BitGrid {
         old
     }
 
+    #[track_caller]
+    pub fn flip(&mut self, x: i16, y: i16) -> bool {
+        let (idx, bit) = self.idx(x, y);
+        let mask = 1 << bit;
+
+        let old = (self.buf[idx] & mask) != 0;
+
+        self.buf[idx] ^= 1 << bit;
+
+        old
+    }
+
     pub fn as_bytes(&self) -> &[u8] {
         &self.buf
     }
@@ -59,10 +71,8 @@ impl BitGrid {
     pub fn as_mut_bytes(&mut self) -> &mut [u8] {
         &mut self.buf
     }
-}
 
-impl BitGrid {
-    pub(self) fn idx(&self, x: i16, y: i16) -> (usize, u8) {
+    pub fn idx(&self, x: i16, y: i16) -> (usize, u8) {
         // Wrap x and y along their axis
         let x = (x + self.width()) % self.width();
         let y = (y + self.height()) % self.height();
@@ -146,7 +156,6 @@ mod tests {
     }
 
     #[test]
-
     fn check_get_set() {
         let mut grid = BitGrid::new(16, 16);
         assert!(grid.is_empty());
@@ -162,6 +171,25 @@ mod tests {
 
                 grid.set(x, y, false);
                 assert_eq!(grid.get(x, y), false);
+            }
+        }
+    }
+
+    #[test]
+    fn check_flip() {
+        let mut grid = BitGrid::new(16, 16);
+        assert!(grid.is_empty());
+
+        for y in 0..grid.height() {
+            for x in 0..grid.width() {
+                grid.flip(x, y);
+            }
+        }
+
+        assert_eq!(grid.is_empty(), false);
+        for y in 0..grid.height() {
+            for x in 0..grid.width() {
+                assert_eq!(grid.get(x, y), true);
             }
         }
     }
