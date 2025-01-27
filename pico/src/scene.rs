@@ -1,3 +1,4 @@
+#![allow(dead_code, unused)]
 //! WIP Trait to manage multiple scenes
 
 use crate::oled::Display;
@@ -58,6 +59,148 @@ pub struct ConwayScene {
     view_width: u32,
     view_height: u32,
     base_y: i32,
+}
+
+pub struct BitflipperScene {
+    view_width: i32,
+    view_height: i32,
+    step_index: i32,
+    t: i32,
+    x: i32,
+    y: i32,
+    dir_x: i32,
+    dir_y: i32,
+    bits: simulations::BitGrid,
+}
+
+#[rustfmt::skip]
+const STEP_NUMERATORS:   [i32; 18] = [ 1,  1,  1, 1, 1, 1, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144];
+#[rustfmt::skip]
+const STEP_DENOMINATORS: [i32; 18] = [30, 21, 13, 8, 5, 3, 2, 1, 1, 1, 1, 1,  1,  1,  1,  1,  1,   1];
+
+impl BitflipperScene {
+    pub fn new<Device, DataCmdPin>(display: &crate::oled::Display<Device, DataCmdPin>) -> Self
+    where
+        DataCmdPin: embedded_hal::digital::OutputPin,
+        Device: embedded_hal::spi::SpiDevice,
+    {
+        let view_width = display.width() as i32;
+        let view_height = display.height() as i32 - 15;
+
+        let step_index = 1;
+        let t = 0;
+        let x = 0;
+        let y = 0;
+        let dir_x = 3;
+        let dir_y = 5;
+        let bits = simulations::BitGrid::new(view_width as usize, view_height as usize);
+
+        Self {
+            view_height,
+            view_width,
+            step_index,
+            t,
+            x,
+            y,
+            dir_x,
+            dir_y,
+            bits,
+        }
+    }
+
+    fn current_step_count(&mut self) -> i32 {
+        return 10920 * STEP_NUMERATORS[self.step_index.abs()as usize - 1]
+            / STEP_DENOMINATORS
+        [self.step_index.abs() as usize - 1]
+            * self.step_index.signum();
+    }
+
+    fn advance_by(&mut self, pixel_delta: i32) {
+        for _ in 0..pixel_delta.abs() {
+            self.flip_and_advance(pixel_delta.signum())
+        }
+    }
+
+    fn flip_and_advance(&mut self, dir: i32) {
+        let flipped_x_pixel = self.current_x_pixel();
+        let flipped_y_pixel = self.current_y_pixel();
+        self.flip(flipped_x_pixel, flipped_y_pixel);
+
+        loop {
+            let next_x = ((self.x / self.dir_y.abs()) + self.dir_x.signum()) * self.dir_y.abs();
+            let next_y = ((self.y / self.dir_x.abs()) + self.dir_y.signum()) * self.dir_x.abs();
+
+            let dist_x = next_x - self.x;
+            let dist_y = next_y - self.y;
+
+            if (dist_x * self.dir_x).abs() < (dist_y * self.dir_y).abs() {
+                // next x boundary is closer
+                self.x = next_x;
+                self.y += dist_x * self.dir_x / self.dir_y;
+            } else {
+                // next y boundary is closer
+                self.y = next_y;
+                self.x += dist_y * self.dir_y / self.dir_x;
+            }
+
+            if (self.x == 0 || self.x == self.view_width * self.dir_y.abs()) {
+                self.dir_x *= -1;
+            }
+
+            if (self.y == 0 || self.y == self.view_width * self.dir_x.abs()) {
+                self.dir_y *= -1;
+            }
+
+            if self.current_x_pixel() != flipped_x_pixel || self.current_y_pixel() != flipped_y_pixel {
+                break;
+            }
+        }
+    }
+
+    fn current_x_pixel(&mut self) -> i32 {
+        self.x / self.dir_y.abs() + if self.dir_x > 0 { 0 } else { -1 }
+    }
+
+    fn current_y_pixel(&mut self) -> i32 {
+        self.y / self.dir_x.abs() + if self.dir_y > 0 { 0 } else { -1 }
+    }
+
+    fn flip(&mut self, x_pixel: i32, y_pixel: i32) {
+        self.bits.flip(x_pixel as i16, y_pixel as i16);
+    }
+}
+
+impl Scene for BitflipperScene {
+    fn update<Device, DataCmdPin>(
+        &mut self,
+        ctx: &mut Context<'_>,
+        display: &mut Display<Device, DataCmdPin>,
+    ) -> bool
+    where
+        DataCmdPin: embedded_hal::digital::OutputPin,
+        Device: embedded_hal::spi::SpiDevice,
+    {
+        if ctx.btn_a {
+            if self.step_index.abs() < STEP_NUMERATORS.len() as i32 {
+                self.step_index -= 1;
+            }
+        }
+
+        if ctx.btn_b {
+            if self.step_index < STEP_NUMERATORS.len() as i32 {
+                self.step_index += 1;
+            }
+        }
+
+        self.t += self.current_step_count();
+        let pixel_delta = self.t / 10920;
+        self.t -= pixel_delta * 10920;
+        self.advance_by(pixel_delta);
+        if (pixel_delta != 0) {
+            display.flush_with(&self.bits);
+        }
+        false
+    }
 }
 
 impl ConwayScene {

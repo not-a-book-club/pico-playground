@@ -238,7 +238,7 @@ fn main() -> ! {
     //     delay.delay_ms(500);
     // }
 
-    let mut conway_scene = pico::scene::ConwayScene::new(&display);
+    let mut bitflipper_scene = pico::scene::BitflipperScene::new(&display);
 
     'screens: loop {
         // Delay when changing
@@ -389,7 +389,7 @@ fn main() -> ! {
                     btn_a: false,
                     btn_b: false,
                 };
-                conway_scene.init(&mut ctx);
+                bitflipper_scene.init(&mut ctx);
 
                 loop {
                     let mut ctx = Context {
@@ -408,10 +408,10 @@ fn main() -> ! {
                     // Press A to go to the next screen
                     else if ctx.btn_a && !ctx.btn_b {
                         state += 1;
-                        conway_scene.deinit(&mut ctx);
+                        bitflipper_scene.deinit(&mut ctx);
                         continue 'screens;
                     } else {
-                        let needs_flush = conway_scene.update(&mut ctx, &mut display);
+                        let needs_flush = bitflipper_scene.update(&mut ctx, &mut display);
                         if needs_flush {
                             display.flush();
                         }
