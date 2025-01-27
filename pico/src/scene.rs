@@ -81,9 +81,9 @@ pub struct BitflipperScene {
 }
 
 #[rustfmt::skip]
-const STEP_NUMERATORS:   [i32; 18] = [1, 1, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987];
+const STEP_NUMERATORS:   [i32; 20] = [1, 1, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1597, 2584];
 #[rustfmt::skip]
-const STEP_DENOMINATORS: [i32; 18] = [5, 3, 2, 1, 1, 1, 1, 1,  1,  1,  1,  1,  1,   1,   1,   1,   1,   1];
+const STEP_DENOMINATORS: [i32; 20] = [5, 3, 2, 1, 1, 1, 1, 1,  1,  1,  1,  1,  1,   1,   1,   1,   1,   1,    1,    1];
 
 impl BitflipperScene {
     pub fn new<Device, DataCmdPin>(display: &crate::oled::Display<Device, DataCmdPin>) -> Self
@@ -127,7 +127,10 @@ impl BitflipperScene {
 
     fn advance_by(&mut self, pixel_delta: i32) {
         for _ in 0..pixel_delta.abs() {
-            self.flip_and_advance(pixel_delta.signum())
+            self.flip_and_advance(pixel_delta.signum());
+            if (self.x == 0 && self.y == 0) {
+                break;
+            }
         }
     }
 
@@ -200,6 +203,12 @@ impl Scene for BitflipperScene {
         self.t -= pixel_delta * 10920;
         self.advance_by(pixel_delta);
         display.flush_with(&self.bits);
+
+        if (self.x == 0 && self.y == 0) {
+            use rand::Rng;
+            self.dir_x = ctx.rng.gen::<i32>() % 1024;
+            self.dir_y = ctx.rng.gen::<i32>() % 1024;
+        }
 
         false
     }
