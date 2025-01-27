@@ -1,5 +1,9 @@
 #![no_std]
-#![allow(clippy::identity_op)]
+#![allow(
+    clippy::identity_op,
+    clippy::collapsible_if,
+    clippy::collapsible_else_if
+)]
 
 extern crate alloc;
 

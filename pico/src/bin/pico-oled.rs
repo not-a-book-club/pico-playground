@@ -1,6 +1,10 @@
 #![no_std]
 #![no_main]
-#![allow(clippy::identity_op)]
+#![allow(
+    clippy::identity_op,
+    clippy::collapsible_if,
+    clippy::collapsible_else_if
+)]
 
 // Runtime things
 extern crate alloc;
