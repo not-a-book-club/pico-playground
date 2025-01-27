@@ -37,9 +37,7 @@ fn main() {
     let mut is_running = true;
 
     while window.is_open() {
-        if window.is_key_pressed(Key::Escape, KeyRepeat::No)
-            || window.is_key_pressed(Key::Q, KeyRepeat::No)
-        {
+        if window.is_key_pressed(Key::Escape, KeyRepeat::No) {
             break;
         }
 
