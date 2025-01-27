@@ -98,8 +98,8 @@ impl BitflipperScene {
         let t = 0;
         let x = 0;
         let y = 0;
-        let dir_x = 1131;
-        let dir_y = 28;
+        let dir_x = 1923;
+        let dir_y = 3391;
         let bits = simulations::BitGrid::new(view_width as usize, view_height as usize);
 
         Self {
@@ -182,7 +182,7 @@ impl Scene for BitflipperScene {
         Device: embedded_hal::spi::SpiDevice,
     {
         if ctx.btn_a {
-            if self.step_index.abs() < STEP_NUMERATORS.len() as i32 {
+            if self.step_index > 0 || self.step_index.abs() < STEP_NUMERATORS.len() as i32 {
                 self.step_index -= 1;
                 ctx.delay.delay_ms(200);
             }

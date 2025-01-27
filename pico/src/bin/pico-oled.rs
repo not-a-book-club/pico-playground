@@ -277,10 +277,10 @@ fn main() -> ! {
                     //     bitflipper_scene.deinit(&mut ctx);
                     //     continue 'screens;
                     // } else {
-                        let needs_flush = bitflipper_scene.update(&mut ctx, &mut display);
-                        if needs_flush {
-                            display.flush();
-                        }
+                    let needs_flush = bitflipper_scene.update(&mut ctx, &mut display);
+                    if needs_flush {
+                        display.flush();
+                    }
                     // }
                 }
             }
