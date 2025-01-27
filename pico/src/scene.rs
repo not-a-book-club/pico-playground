@@ -81,9 +81,9 @@ pub struct BitflipperScene {
 }
 
 #[rustfmt::skip]
-const STEP_NUMERATORS:   [i32; 22] = [ 1,  1,  1, 1, 1, 1, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987];
+const STEP_NUMERATORS:   [i32; 18] = [1, 1, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987];
 #[rustfmt::skip]
-const STEP_DENOMINATORS: [i32; 22] = [30, 21, 13, 8, 5, 3, 2, 1, 1, 1, 1, 1,  1,  1,  1,  1,  1,   1,   1,   1,   1,   1];
+const STEP_DENOMINATORS: [i32; 18] = [5, 3, 2, 1, 1, 1, 1, 1,  1,  1,  1,  1,  1,   1,   1,   1,   1,   1];
 
 impl BitflipperScene {
     pub fn new<Device, DataCmdPin>(display: &crate::oled::Display<Device, DataCmdPin>) -> Self
@@ -98,8 +98,8 @@ impl BitflipperScene {
         let t = 0;
         let x = 0;
         let y = 0;
-        let dir_x = 1923;
-        let dir_y = 3391;
+        let dir_x = 183;
+        let dir_y = 203;
         let bits = simulations::BitGrid::new(view_width as usize, view_height as usize);
 
         Self {
