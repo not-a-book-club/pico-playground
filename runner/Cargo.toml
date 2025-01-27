@@ -11,6 +11,11 @@ path = "src/life.rs"
 name = "elem"
 path = "src/elem.rs"
 
+
+[[bin]]
+name = "bitflipper"
+path = "src/bitflipper.rs"
+
 [dependencies]
 simulations = { path = "../simulations" }
 
