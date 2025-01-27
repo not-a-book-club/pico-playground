@@ -78,7 +78,6 @@ pub struct BitflipperScene {
     dir_x: i32,
     dir_y: i32,
     bits: simulations::BitGrid,
-    enabled_bit_count: i32,
     cycle_count: i32,
 }
 
@@ -103,7 +102,6 @@ impl BitflipperScene {
         let dir_x = 183;
         let dir_y = 203;
         let bits = simulations::BitGrid::new(view_width as usize, view_height as usize);
-        let enabled_bit_count = 0;
         let cycle_count = 0;
 
         Self {
@@ -116,7 +114,6 @@ impl BitflipperScene {
             dir_x,
             dir_y,
             bits,
-            enabled_bit_count,
             cycle_count,
         }
     }
@@ -167,11 +164,6 @@ impl BitflipperScene {
     fn flipBit(&mut self) {
         let x_pixel = (self.x + if self.dir_x >= 0 { 0 } else { -1 }) / self.dir_y.abs();
         let y_pixel = (self.y + if self.dir_y >= 0 { 0 } else { -1 }) / self.dir_x.abs();
-        self.enabled_bit_count += if self.bits.get(x_pixel as i16, y_pixel as i16) {
-            -1
-        } else {
-            1
-        };
         self.bits.flip(x_pixel as i16, y_pixel as i16);
     }
 }
