@@ -2,8 +2,11 @@
 //! WIP Trait to manage multiple scenes
 
 use crate::oled::Display;
-use core::cmp;
+
+use cortex_m::delay::Delay;
 use rand::rngs::SmallRng;
+
+use core::cmp;
 
 /// A trait that describes what actions a Scene might need to do in response to user input
 ///
@@ -46,6 +49,9 @@ pub struct Context<'a> {
 
     /// Whether the B button / Key0 is pressed or not
     pub btn_b: bool,
+
+    /// Allows Scenes to sleep in their update() calls
+    pub delay: &'a mut Delay,
 }
 
 use embedded_graphics::mono_font::{ascii, MonoTextStyle};
@@ -86,7 +92,7 @@ impl BitflipperScene {
         Device: embedded_hal::spi::SpiDevice,
     {
         let view_width = display.width() as i32;
-        let view_height = display.height() as i32 - 15;
+        let view_height = display.height() as i32;
 
         let step_index = 1;
         let t = 0;
@@ -184,12 +190,14 @@ impl Scene for BitflipperScene {
         if ctx.btn_a {
             if self.step_index.abs() < STEP_NUMERATORS.len() as i32 {
                 self.step_index -= 1;
+                ctx.delay.delay_ms(200);
             }
         }
 
         if ctx.btn_b {
             if self.step_index < STEP_NUMERATORS.len() as i32 {
                 self.step_index += 1;
+                ctx.delay.delay_ms(200);
             }
         }
 
@@ -200,6 +208,7 @@ impl Scene for BitflipperScene {
             self.advance_by(pixel_delta);
             display.flush_with(&self.bits);
         }
+
         false
     }
 }
