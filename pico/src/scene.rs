@@ -78,6 +78,8 @@ pub struct BitflipperScene {
     dir_x: i32,
     dir_y: i32,
     bits: simulations::BitGrid,
+    enabled_bit_count: i32,
+    cycle_count: i32,
 }
 
 #[rustfmt::skip]
@@ -101,6 +103,8 @@ impl BitflipperScene {
         let dir_x = 183;
         let dir_y = 203;
         let bits = simulations::BitGrid::new(view_width as usize, view_height as usize);
+        let enabled_bit_count = 0;
+        let cycle_count = 0;
 
         Self {
             view_height,
@@ -112,6 +116,8 @@ impl BitflipperScene {
             dir_x,
             dir_y,
             bits,
+            enabled_bit_count,
+            cycle_count,
         }
     }
 
@@ -123,15 +129,6 @@ impl BitflipperScene {
         return 10920 * STEP_NUMERATORS[self.step_index.abs() as usize - 1]
             / STEP_DENOMINATORS[self.step_index.abs() as usize - 1]
             * self.step_index.signum();
-    }
-
-    fn advance_by(&mut self, pixel_delta: i32) {
-        for _ in 0..pixel_delta.abs() {
-            self.flip_and_advance(pixel_delta.signum());
-            if (self.x == 0 && self.y == 0) {
-                break;
-            }
-        }
     }
 
     fn flip_and_advance(&mut self, dir: i32) {
@@ -170,6 +167,11 @@ impl BitflipperScene {
     fn flipBit(&mut self) {
         let x_pixel = (self.x + if self.dir_x >= 0 { 0 } else { -1 }) / self.dir_y.abs();
         let y_pixel = (self.y + if self.dir_y >= 0 { 0 } else { -1 }) / self.dir_x.abs();
+        self.enabled_bit_count += if self.bits.get(x_pixel as i16, y_pixel as i16) {
+            -1
+        } else {
+            1
+        };
         self.bits.flip(x_pixel as i16, y_pixel as i16);
     }
 }
@@ -201,14 +203,22 @@ impl Scene for BitflipperScene {
         self.t += self.current_step_count();
         let pixel_delta = self.t / 10920;
         self.t -= pixel_delta * 10920;
-        self.advance_by(pixel_delta);
-        display.flush_with(&self.bits);
 
-        if (self.x == 0 && self.y == 0) {
-            use rand::Rng;
-            self.dir_x = ctx.rng.gen::<i32>() % 1024;
-            self.dir_y = ctx.rng.gen::<i32>() % 1024;
+        for _ in 0..pixel_delta.abs() {
+            self.flip_and_advance(pixel_delta.signum());
+
+            if (self.x == 0 && self.y == 0) {
+                self.cycle_count += 1;
+                if self.cycle_count == 5 {
+                    self.cycle_count = 0;
+                    use rand::Rng;
+                    self.dir_x = ctx.rng.gen::<i32>() % 1024;
+                    self.dir_y = ctx.rng.gen::<i32>() % 1024;
+                }
+            }
         }
+
+        display.flush_with(&self.bits);
 
         false
     }
