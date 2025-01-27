@@ -2,6 +2,7 @@
 //! WIP Trait to manage multiple scenes
 
 use crate::oled::Display;
+use core::cmp;
 use rand::rngs::SmallRng;
 
 /// A trait that describes what actions a Scene might need to do in response to user input
@@ -109,9 +110,8 @@ impl BitflipperScene {
     }
 
     fn current_step_count(&mut self) -> i32 {
-        return 10920 * STEP_NUMERATORS[self.step_index.abs()as usize - 1]
-            / STEP_DENOMINATORS
-        [self.step_index.abs() as usize - 1]
+        return 10920 * STEP_NUMERATORS[self.step_index.abs() as usize - 1]
+            / STEP_DENOMINATORS[self.step_index.abs() as usize - 1]
             * self.step_index.signum();
     }
 
@@ -127,42 +127,43 @@ impl BitflipperScene {
         self.flip(flipped_x_pixel, flipped_y_pixel);
 
         loop {
-            let next_x = ((self.x / self.dir_y.abs()) + self.dir_x.signum()) * self.dir_y.abs();
-            let next_y = ((self.y / self.dir_x.abs()) + self.dir_y.signum()) * self.dir_x.abs();
+            let next_x = (((self.x + if self.dir_x < 0 { -1 } else { 0 }) / self.dir_y.abs())
+                + if self.dir_x >= 0 { 1 } else { 0 })
+                * self.dir_y.abs();
+            let next_y = (((self.y + if self.dir_y < 0 { -1 } else { 0 }) / self.dir_x.abs())
+                + if self.dir_y >= 0 { 1 } else { 0 })
+                * self.dir_x.abs();
 
             let dist_x = next_x - self.x;
             let dist_y = next_y - self.y;
 
-            if (dist_x * self.dir_x).abs() < (dist_y * self.dir_y).abs() {
-                // next x boundary is closer
-                self.x = next_x;
-                self.y += dist_x * self.dir_x / self.dir_y;
-            } else {
-                // next y boundary is closer
-                self.y = next_y;
-                self.x += dist_y * self.dir_y / self.dir_x;
-            }
+            let move_amount = cmp::min(dist_x.abs(), dist_y.abs());
+
+            self.x += move_amount * self.dir_x.signum();
+            self.y += move_amount * self.dir_y.signum();
 
             if (self.x == 0 || self.x == self.view_width * self.dir_y.abs()) {
                 self.dir_x *= -1;
             }
 
-            if (self.y == 0 || self.y == self.view_width * self.dir_x.abs()) {
+            if (self.y == 0 || self.y == self.view_height * self.dir_x.abs()) {
                 self.dir_y *= -1;
             }
 
-            if self.current_x_pixel() != flipped_x_pixel || self.current_y_pixel() != flipped_y_pixel {
+            if self.current_x_pixel() != flipped_x_pixel
+                || self.current_y_pixel() != flipped_y_pixel
+            {
                 break;
             }
         }
     }
 
     fn current_x_pixel(&mut self) -> i32 {
-        self.x / self.dir_y.abs() + if self.dir_x > 0 { 0 } else { -1 }
+        (self.x + if self.dir_x >= 0 { 0 } else { -1 }) / self.dir_y.abs()
     }
 
     fn current_y_pixel(&mut self) -> i32 {
-        self.y / self.dir_x.abs() + if self.dir_y > 0 { 0 } else { -1 }
+        (self.y + if self.dir_y >= 0 { 0 } else { -1 }) / self.dir_x.abs()
     }
 
     fn flip(&mut self, x_pixel: i32, y_pixel: i32) {
@@ -195,8 +196,8 @@ impl Scene for BitflipperScene {
         self.t += self.current_step_count();
         let pixel_delta = self.t / 10920;
         self.t -= pixel_delta * 10920;
-        self.advance_by(pixel_delta);
         if (pixel_delta != 0) {
+            self.advance_by(pixel_delta);
             display.flush_with(&self.bits);
         }
         false
