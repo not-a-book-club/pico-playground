@@ -81,9 +81,9 @@ pub struct BitflipperScene {
 }
 
 #[rustfmt::skip]
-const STEP_NUMERATORS:   [i32; 18] = [ 1,  1,  1, 1, 1, 1, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144];
+const STEP_NUMERATORS:   [i32; 22] = [ 1,  1,  1, 1, 1, 1, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987];
 #[rustfmt::skip]
-const STEP_DENOMINATORS: [i32; 18] = [30, 21, 13, 8, 5, 3, 2, 1, 1, 1, 1, 1,  1,  1,  1,  1,  1,   1];
+const STEP_DENOMINATORS: [i32; 22] = [30, 21, 13, 8, 5, 3, 2, 1, 1, 1, 1, 1,  1,  1,  1,  1,  1,   1,   1,   1,   1,   1];
 
 impl BitflipperScene {
     pub fn new<Device, DataCmdPin>(display: &crate::oled::Display<Device, DataCmdPin>) -> Self
@@ -98,8 +98,8 @@ impl BitflipperScene {
         let t = 0;
         let x = 0;
         let y = 0;
-        let dir_x = 3;
-        let dir_y = 5;
+        let dir_x = 1131;
+        let dir_y = 28;
         let bits = simulations::BitGrid::new(view_width as usize, view_height as usize);
 
         Self {
@@ -128,52 +128,32 @@ impl BitflipperScene {
     }
 
     fn flip_and_advance(&mut self, dir: i32) {
-        let flipped_x_pixel = self.current_x_pixel();
-        let flipped_y_pixel = self.current_y_pixel();
-        self.flip(flipped_x_pixel, flipped_y_pixel);
-
-        loop {
-            let next_x = (((self.x + if self.dir_x < 0 { -1 } else { 0 }) / self.dir_y.abs())
-                + if self.dir_x >= 0 { 1 } else { 0 })
-                * self.dir_y.abs();
-            let next_y = (((self.y + if self.dir_y < 0 { -1 } else { 0 }) / self.dir_x.abs())
-                + if self.dir_y >= 0 { 1 } else { 0 })
-                * self.dir_x.abs();
-
-            let dist_x = next_x - self.x;
-            let dist_y = next_y - self.y;
-
-            let move_amount = cmp::min(dist_x.abs(), dist_y.abs());
-
-            self.x += move_amount * self.dir_x.signum();
-            self.y += move_amount * self.dir_y.signum();
-
-            if (self.x == 0 || self.x == self.view_width * self.dir_y.abs()) {
-                self.dir_x *= -1;
-            }
-
-            if (self.y == 0 || self.y == self.view_height * self.dir_x.abs()) {
-                self.dir_y *= -1;
-            }
-
-            if self.current_x_pixel() != flipped_x_pixel
-                || self.current_y_pixel() != flipped_y_pixel
-            {
-                break;
-            }
-        }
-    }
-
-    fn current_x_pixel(&mut self) -> i32 {
-        (self.x + if self.dir_x >= 0 { 0 } else { -1 }) / self.dir_y.abs()
-    }
-
-    fn current_y_pixel(&mut self) -> i32 {
-        (self.y + if self.dir_y >= 0 { 0 } else { -1 }) / self.dir_x.abs()
-    }
-
-    fn flip(&mut self, x_pixel: i32, y_pixel: i32) {
+        let x_pixel = (self.x + if self.dir_x >= 0 { 0 } else { -1 }) / self.dir_y.abs();
+        let y_pixel = (self.y + if self.dir_y >= 0 { 0 } else { -1 }) / self.dir_x.abs();
         self.bits.flip(x_pixel as i16, y_pixel as i16);
+
+        let next_x = (((self.x + if self.dir_x * dir < 0 { -1 } else { 0 }) / self.dir_y.abs())
+            + if self.dir_x * dir >= 0 { 1 } else { 0 })
+            * self.dir_y.abs();
+        let next_y = (((self.y + if self.dir_y * dir < 0 { -1 } else { 0 }) / self.dir_x.abs())
+            + if self.dir_y * dir >= 0 { 1 } else { 0 })
+            * self.dir_x.abs();
+
+        let dist_x = next_x - self.x;
+        let dist_y = next_y - self.y;
+
+        let move_amount = cmp::min(dist_x.abs(), dist_y.abs());
+
+        self.x += move_amount * dir * self.dir_x.signum();
+        self.y += move_amount * dir * self.dir_y.signum();
+
+        if (self.x == 0 || self.x == self.view_width * self.dir_y.abs()) {
+            self.dir_x *= -1;
+        }
+
+        if (self.y == 0 || self.y == self.view_height * self.dir_x.abs()) {
+            self.dir_y *= -1;
+        }
     }
 }
 
@@ -221,7 +201,7 @@ impl ConwayScene {
     {
         let sim = simulations::Life::new(display.width() as usize, display.height() as usize);
         let view_width = display.width() as u32;
-        let view_height = display.height() as u32 - 15;
+        let view_height = display.height() as u32;
         let base_y = (display.height() as u32 - view_height) as i32;
 
         Self {

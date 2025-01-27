@@ -155,7 +155,7 @@ fn main() -> ! {
     let mut display = Display::new(driver);
 
     let view_width = display.width() as u32;
-    let view_height = display.height() as u32 - 15;
+    let view_height = display.height() as u32;
     let style_white_border = PrimitiveStyleBuilder::new()
         .stroke_width(1)
         .stroke_color(BinaryColor::On)
