@@ -204,8 +204,8 @@ impl Scene for BitflipperScene {
                 if self.cycle_count == 5 {
                     self.cycle_count = 0;
                     use rand::Rng;
-                    self.dir_x = ctx.rng.gen::<i32>() % 1024;
-                    self.dir_y = ctx.rng.gen::<i32>() % 1024;
+                    self.dir_x = (ctx.rng.gen::<i32>() % 1024) + 1;
+                    self.dir_y = (ctx.rng.gen::<i32>() % 1024) + 1;
                 }
             }
         }
