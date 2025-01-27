@@ -94,7 +94,7 @@ impl BitflipperScene {
         let view_width = display.width() as i32;
         let view_height = display.height() as i32;
 
-        let step_index = 1;
+        let step_index = 6; // vroom vroom
         let t = 0;
         let x = 0;
         let y = 0;
@@ -184,14 +184,14 @@ impl Scene for BitflipperScene {
         if ctx.btn_a {
             if self.step_index > 0 || self.step_index.abs() < STEP_NUMERATORS.len() as i32 {
                 self.step_index -= 1;
-                ctx.delay.delay_ms(200);
+                ctx.delay.delay_ms(75);
             }
         }
 
         if ctx.btn_b {
             if self.step_index < STEP_NUMERATORS.len() as i32 {
                 self.step_index += 1;
-                ctx.delay.delay_ms(200);
+                ctx.delay.delay_ms(75);
             }
         }
 

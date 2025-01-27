@@ -19,7 +19,7 @@ use embedded_graphics::pixelcolor::BinaryColor;
 use embedded_graphics::prelude::*;
 use embedded_graphics::primitives::*;
 use embedded_graphics::text::renderer::CharacterStyle;
-use embedded_graphics::text::{renderer::TextRenderer, Text};
+use embedded_graphics::text::Text;
 use embedded_hal::digital::InputPin;
 use hal::fugit::*;
 use hal::prelude::*;
@@ -154,23 +154,11 @@ fn main() -> ! {
     let driver = SH1107Driver::new(spi_dev, dc, &mut rst, &mut delay);
     let mut display = Display::new(driver);
 
-    let view_width = display.width() as u32;
-    let view_height = display.height() as u32;
     let style_white_border = PrimitiveStyleBuilder::new()
         .stroke_width(1)
         .stroke_color(BinaryColor::On)
-        // .fill_color(BinaryColor::Off)
         .build();
-    let _style_fill_black = PrimitiveStyleBuilder::new()
-        .stroke_width(1)
-        .stroke_color(BinaryColor::On)
-        .fill_color(BinaryColor::On)
-        .build();
-    let _style_fill_white = PrimitiveStyleBuilder::new()
-        .stroke_width(1)
-        .stroke_color(BinaryColor::On)
-        .fill_color(BinaryColor::On)
-        .build();
+    let style_text = MonoTextStyle::new(&ascii::FONT_5X8, BinaryColor::On);
 
     // Draw a title screen of sorts
     {
@@ -189,11 +177,11 @@ fn main() -> ! {
         {
             let mut bit_style = MonoTextStyle::new(&ascii::FONT_6X13_BOLD, BinaryColor::Off);
             bit_style.set_background_color(Some(BinaryColor::On));
-            let bit = Text::new("BIT", Point::new(38, 32), bit_style);
+            let bit = Text::new("BIT", Point::new(38, 16), bit_style);
             let _ = bit.draw(&mut display);
 
             let flipper_style = MonoTextStyle::new(&ascii::FONT_6X13_ITALIC, BinaryColor::On);
-            let flipper = Text::new("flipper", Point::new(58, 35), flipper_style);
+            let flipper = Text::new("flipper", Point::new(58, 19), flipper_style);
             let _ = flipper.draw(&mut display);
         }
 
@@ -201,33 +189,34 @@ fn main() -> ! {
         for i in 0..3 {
             let xs = width * 1 / 8 + 3 * (3 - i);
             let xe = width * 7 / 8 - 3 * (3 - i);
-            let y = 3 * height / 4 + (i - 1) * 5;
+            let y = 3 * height / 4 + (i - 1) * 5 - 16;
             let line0 = Line::new(Point::new(xs, y), Point::new(xe, y));
             let _ = line0.draw_styled(&style_white_border, &mut display);
         }
 
-        // Animate a load bar (this goes too far but it's hilarious so leave it alone please)
-        let time = 16; // units of 100ms
-        let xs = width * 1 / 16;
-        let xe = width * 1 / 16;
-        let y = height / 5;
-        for i in 1..=time {
-            let _ = Line::new(Point::new(xs, y), Point::new(xe + i * width / 16, y))
-                .draw_styled(&style_white_border, &mut display);
+        // Instruct the obediant
+        let anykey = Text::new(
+            "~PRESS ANY KEY~",
+            Point::new(32, 3 * height / 4 + 8),
+            style_text,
+        );
+        let _ = anykey.draw(&mut display);
 
-            display.flush();
+        display.flush();
+
+        // Wait until a button press
+        for _ in 0..15 {
+            let a = btn_a.is_low().unwrap();
+            let b = btn_b.is_low().unwrap();
+            if a | b {
+                break;
+            }
 
             delay.delay_ms(100);
         }
 
-        display.flush();
         display.clear_unset();
     }
-
-    let style_text = MonoTextStyle::new(&ascii::FONT_5X8, BinaryColor::On);
-    let style_text_tiny = MonoTextStyle::new(&ascii::FONT_4X6, BinaryColor::On);
-    let line_height = style_text.line_height() as i32;
-    let _line_margin = line_height / 3;
 
     let mut rng = SmallRng::from_seed(core::array::from_fn(|_| 17));
 
