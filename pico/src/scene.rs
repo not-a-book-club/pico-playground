@@ -116,6 +116,10 @@ impl BitflipperScene {
     }
 
     fn current_step_count(&mut self) -> i32 {
+        if self.step_index == 0 {
+            return 0;
+        }
+
         return 10920 * STEP_NUMERATORS[self.step_index.abs() as usize - 1]
             / STEP_DENOMINATORS[self.step_index.abs() as usize - 1]
             * self.step_index.signum();
@@ -128,9 +132,9 @@ impl BitflipperScene {
     }
 
     fn flip_and_advance(&mut self, dir: i32) {
-        let x_pixel = (self.x + if self.dir_x >= 0 { 0 } else { -1 }) / self.dir_y.abs();
-        let y_pixel = (self.y + if self.dir_y >= 0 { 0 } else { -1 }) / self.dir_x.abs();
-        self.bits.flip(x_pixel as i16, y_pixel as i16);
+        if (dir.signum() > 0) {
+            self.flipBit()
+        }
 
         let next_x = (((self.x + if self.dir_x * dir < 0 { -1 } else { 0 }) / self.dir_y.abs())
             + if self.dir_x * dir >= 0 { 1 } else { 0 })
@@ -147,6 +151,10 @@ impl BitflipperScene {
         self.x += move_amount * dir * self.dir_x.signum();
         self.y += move_amount * dir * self.dir_y.signum();
 
+        if (dir.signum() < 0) {
+            self.flipBit()
+        }
+
         if (self.x == 0 || self.x == self.view_width * self.dir_y.abs()) {
             self.dir_x *= -1;
         }
@@ -154,6 +162,12 @@ impl BitflipperScene {
         if (self.y == 0 || self.y == self.view_height * self.dir_x.abs()) {
             self.dir_y *= -1;
         }
+    }
+
+    fn flipBit(&mut self) {
+        let x_pixel = (self.x + if self.dir_x >= 0 { 0 } else { -1 }) / self.dir_y.abs();
+        let y_pixel = (self.y + if self.dir_y >= 0 { 0 } else { -1 }) / self.dir_x.abs();
+        self.bits.flip(x_pixel as i16, y_pixel as i16);
     }
 }
 
@@ -184,10 +198,8 @@ impl Scene for BitflipperScene {
         self.t += self.current_step_count();
         let pixel_delta = self.t / 10920;
         self.t -= pixel_delta * 10920;
-        if (pixel_delta != 0) {
-            self.advance_by(pixel_delta);
-            display.flush_with(&self.bits);
-        }
+        self.advance_by(pixel_delta);
+        display.flush_with(&self.bits);
 
         false
     }

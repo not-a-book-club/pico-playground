@@ -272,16 +272,16 @@ fn main() -> ! {
                     }
 
                     // Press A to go to the next screen
-                    if ctx.btn_a && !ctx.btn_b {
-                        state += 1;
-                        bitflipper_scene.deinit(&mut ctx);
-                        continue 'screens;
-                    } else {
+                    // if ctx.btn_a && !ctx.btn_b {
+                    //     state += 1;
+                    //     bitflipper_scene.deinit(&mut ctx);
+                    //     continue 'screens;
+                    // } else {
                         let needs_flush = bitflipper_scene.update(&mut ctx, &mut display);
                         if needs_flush {
                             display.flush();
                         }
-                    }
+                    // }
                 }
             }
 
