@@ -137,7 +137,7 @@ impl BitflipperScene {
 
     fn flip_and_advance(&mut self, dir: i32) {
         if (dir.signum() > 0) {
-            self.flipBit()
+            self.flip_bit()
         }
 
         let next_x = (((self.x + if self.dir_x * dir < 0 { -1 } else { 0 }) / self.dir_y.abs())
@@ -156,7 +156,7 @@ impl BitflipperScene {
         self.y += move_amount * dir * self.dir_y.signum();
 
         if (dir.signum() < 0) {
-            self.flipBit()
+            self.flip_bit()
         }
 
         if (self.x == 0 || self.x == self.view_width * self.dir_y.abs()) {
@@ -168,27 +168,25 @@ impl BitflipperScene {
         }
     }
 
-    fn flipBit(&mut self) {
+    fn flip_bit(&mut self) {
         let x_pixel = (self.x + if self.dir_x >= 0 { 0 } else { -1 }) / self.dir_y.abs();
         let y_pixel = (self.y + if self.dir_y >= 0 { 0 } else { -1 }) / self.dir_x.abs();
         self.bits.flip(x_pixel as i16, y_pixel as i16);
     }
 
-    fn setSlopeForCycleCount(&mut self, ctx: &mut Context<'_>) {
-        let dir_x_idx: usize;
-
-        if (self.cycle_count >= 0) {
-            dir_x_idx = (self.cycle_count * 4) as usize;
+    fn set_slope_for_cycle_count(&mut self, ctx: &mut Context<'_>) {
+        let dir_x_idx: usize = if (self.cycle_count >= 0) {
+            (self.cycle_count * 4) as usize
         } else {
-            dir_x_idx = (self.cycle_count * -4 - 2) as usize;
-        }
+            (self.cycle_count * -4 - 2) as usize
+        };
 
-        self.fillSlopeVecUntil(dir_x_idx + 1, ctx);
+        self.fill_slope_vec_until(dir_x_idx + 1, ctx);
         self.dir_x = self.slopes[dir_x_idx];
         self.dir_y = self.slopes[dir_x_idx + 1];
     }
 
-    fn fillSlopeVecUntil(&mut self, index: usize, ctx: &mut Context<'_>) {
+    fn fill_slope_vec_until(&mut self, index: usize, ctx: &mut Context<'_>) {
         use rand::Rng;
         while (self.slopes.len() <= index) {
             self.slopes.push(1 + (ctx.rng.gen::<i32>() % 4096));
@@ -229,7 +227,7 @@ impl Scene for BitflipperScene {
         for _ in 0..pixel_delta.abs() {
             if (self.x == 0 && self.y == 0) {
                 self.cycle_count += self.step_index.signum();
-                self.setSlopeForCycleCount(ctx);
+                self.set_slope_for_cycle_count(ctx);
             }
 
             self.flip_and_advance(pixel_delta.signum());
