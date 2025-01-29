@@ -130,9 +130,9 @@ impl BitflipperScene {
             return 0;
         }
 
-        return 10920 * STEP_NUMERATORS[self.step_index.abs() as usize - 1]
-            / STEP_DENOMINATORS[self.step_index.abs() as usize - 1]
-            * self.step_index.signum();
+        10920 * STEP_NUMERATORS[self.step_index.unsigned_abs() as usize - 1]
+            / STEP_DENOMINATORS[self.step_index.unsigned_abs() as usize - 1]
+            * self.step_index.signum()
     }
 
     fn flip_and_advance(&mut self, dir: i32) {
@@ -176,7 +176,7 @@ impl BitflipperScene {
 
     fn setSlopeForCycleCount(&mut self, ctx: &mut Context<'_>) {
         let dir_x_idx: usize;
-        
+
         if (self.cycle_count >= 0) {
             dir_x_idx = (self.cycle_count * 4) as usize;
         } else {
@@ -190,7 +190,7 @@ impl BitflipperScene {
 
     fn fillSlopeVecUntil(&mut self, index: usize, ctx: &mut Context<'_>) {
         use rand::Rng;
-        while (self.slopes.len() <= index as usize) {
+        while (self.slopes.len() <= index) {
             self.slopes.push(1 + (ctx.rng.gen::<i32>() % 4096));
         }
     }
@@ -220,9 +220,7 @@ impl Scene for BitflipperScene {
             }
         }
 
-        if (self.frames_since_input < i32::MAX) {
-            self.frames_since_input += 1;
-        }
+        self.frames_since_input = self.frames_since_input.saturating_add(1);
 
         self.t += self.current_step_count();
         let pixel_delta = self.t / 10920;
