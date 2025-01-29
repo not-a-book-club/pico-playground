@@ -79,12 +79,13 @@ pub struct BitflipperScene {
     dir_y: i32,
     bits: simulations::BitGrid,
     cycle_count: i32,
+    frames_since_input: i32,
 }
 
 #[rustfmt::skip]
-const STEP_NUMERATORS:   [i32; 20] = [1, 1, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1597, 2584];
+const STEP_NUMERATORS:   [i32; 21] = [1, 1, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1597, 2584, 4181];
 #[rustfmt::skip]
-const STEP_DENOMINATORS: [i32; 20] = [5, 3, 2, 1, 1, 1, 1, 1,  1,  1,  1,  1,  1,   1,   1,   1,   1,   1,    1,    1];
+const STEP_DENOMINATORS: [i32; 21] = [5, 3, 2, 1, 1, 1, 1, 1,  1,  1,  1,  1,  1,   1,   1,   1,   1,   1,    1,    1,    1];
 
 impl BitflipperScene {
     pub fn new<Device, DataCmdPin>(display: &crate::oled::Display<Device, DataCmdPin>) -> Self
@@ -103,6 +104,7 @@ impl BitflipperScene {
         let dir_y = 203;
         let bits = simulations::BitGrid::new(view_width as usize, view_height as usize);
         let cycle_count = 0;
+        let frames_since_input = 0;
 
         Self {
             view_height,
@@ -115,6 +117,7 @@ impl BitflipperScene {
             dir_y,
             bits,
             cycle_count,
+            frames_since_input,
         }
     }
 
@@ -178,18 +181,22 @@ impl Scene for BitflipperScene {
         DataCmdPin: embedded_hal::digital::OutputPin,
         Device: embedded_hal::spi::SpiDevice,
     {
-        if ctx.btn_a {
+        if self.frames_since_input > 20 && ctx.btn_a {
+            self.frames_since_input = -1;
             if self.step_index > 0 || self.step_index.abs() < STEP_NUMERATORS.len() as i32 {
                 self.step_index -= 1;
-                ctx.delay.delay_ms(75);
             }
         }
 
-        if ctx.btn_b {
+        if self.frames_since_input > 20 && ctx.btn_b {
+            self.frames_since_input = -1;
             if self.step_index < STEP_NUMERATORS.len() as i32 {
                 self.step_index += 1;
-                ctx.delay.delay_ms(75);
             }
+        }
+
+        if (self.frames_since_input < i32::MAX) {
+            self.frames_since_input += 1;
         }
 
         self.t += self.current_step_count();
