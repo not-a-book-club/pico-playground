@@ -3,6 +3,7 @@
 
 use crate::oled::Display;
 
+use alloc::vec::Vec;
 use cortex_m::delay::Delay;
 use rand::rngs::SmallRng;
 
@@ -80,6 +81,7 @@ pub struct BitflipperScene {
     bits: simulations::BitGrid,
     cycle_count: i32,
     frames_since_input: i32,
+    slopes: Vec<i32>,
 }
 
 #[rustfmt::skip]
@@ -105,6 +107,7 @@ impl BitflipperScene {
         let bits = simulations::BitGrid::new(view_width as usize, view_height as usize);
         let cycle_count = 0;
         let frames_since_input = 0;
+        let mut slopes = Vec::new();
 
         Self {
             view_height,
@@ -118,6 +121,7 @@ impl BitflipperScene {
             bits,
             cycle_count,
             frames_since_input,
+            slopes,
         }
     }
 
@@ -169,6 +173,27 @@ impl BitflipperScene {
         let y_pixel = (self.y + if self.dir_y >= 0 { 0 } else { -1 }) / self.dir_x.abs();
         self.bits.flip(x_pixel as i16, y_pixel as i16);
     }
+
+    fn setSlopeForCycleCount(&mut self, ctx: &mut Context<'_>) {
+        let dir_x_idx: usize;
+        
+        if (self.cycle_count >= 0) {
+            dir_x_idx = (self.cycle_count * 4) as usize;
+        } else {
+            dir_x_idx = (self.cycle_count * -4 - 2) as usize;
+        }
+
+        self.fillSlopeVecUntil(dir_x_idx + 1, ctx);
+        self.dir_x = self.slopes[dir_x_idx];
+        self.dir_y = self.slopes[dir_x_idx + 1];
+    }
+
+    fn fillSlopeVecUntil(&mut self, index: usize, ctx: &mut Context<'_>) {
+        use rand::Rng;
+        while (self.slopes.len() <= index as usize) {
+            self.slopes.push(1 + (ctx.rng.gen::<i32>() % 4096));
+        }
+    }
 }
 
 impl Scene for BitflipperScene {
@@ -204,17 +229,12 @@ impl Scene for BitflipperScene {
         self.t -= pixel_delta * 10920;
 
         for _ in 0..pixel_delta.abs() {
-            self.flip_and_advance(pixel_delta.signum());
-
             if (self.x == 0 && self.y == 0) {
-                self.cycle_count += 1;
-                if self.cycle_count == 5 {
-                    self.cycle_count = 0;
-                    use rand::Rng;
-                    self.dir_x = (ctx.rng.gen::<i32>() % 1024) + 1;
-                    self.dir_y = (ctx.rng.gen::<i32>() % 1024) + 1;
-                }
+                self.cycle_count += self.step_index.signum();
+                self.setSlopeForCycleCount(ctx);
             }
+
+            self.flip_and_advance(pixel_delta.signum());
         }
 
         display.flush_with(&self.bits);
