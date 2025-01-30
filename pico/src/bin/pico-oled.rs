@@ -9,8 +9,6 @@
 // Runtime things
 extern crate alloc;
 use defmt_rtt as _;
-// use panic_probe as _;
-use alloc::format;
 
 // Embedded things
 use cortex_m::delay::Delay;
@@ -32,6 +30,7 @@ use defmt::{debug, error, info, warn};
 use rand::{rngs::SmallRng, SeedableRng};
 
 use pico::oled::{Display, SH1107Driver};
+use pico::scene::*;
 
 // Reboot to BOOTSEL on panic
 #[panic_handler]
@@ -54,6 +53,8 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 
 #[cortex_m_rt::entry]
 fn main() -> ! {
+    // === Setup embedded things ==========================================
+
     // Init Heap
     {
         #![allow(static_mut_refs)]
@@ -126,7 +127,7 @@ fn main() -> ! {
         info!("bootrom git rev: {}", rom::git_revision());
     }
 
-    // === OLED Specific Code Begins ==========================================
+    // === OLED Specific setup ==========================================
     let dc = pins.gpio8.into_push_pull_output();
     let cs = pins.gpio9.into_push_pull_output();
     let mut rst = pins.gpio12.into_push_pull_output();
@@ -153,203 +154,105 @@ fn main() -> ! {
 
     let driver = SH1107Driver::new(spi_dev, dc, &mut rst, &mut delay);
     let mut display = Display::new(driver);
+    display.clear_unset();
+    display.flush();
 
+    // === Let's go BitFlipper! ==========================================
+    do_titlescreen(&mut display, &mut btn_a, &mut btn_b, &mut delay);
+
+    let mut rng = SmallRng::from_seed(core::array::from_fn(|_| 17));
+    let mut bitflipper_scene = pico::scene::BitflipperScene::new(&display);
+    let mut ctx = Context {
+        rng: &mut rng,
+        btn_a: false,
+        btn_b: false,
+        delay: &mut delay,
+    };
+
+    bitflipper_scene.init(&mut ctx);
+
+    loop {
+        ctx.btn_a = btn_a.is_low().unwrap();
+        ctx.btn_b = btn_b.is_low().unwrap();
+
+        // Reset back to BOOTSEL so that the next cargo-run updates our code
+        if ctx.btn_a && ctx.btn_b {
+            hal::rom_data::reset_to_usb_boot(0, 0);
+            unreachable!();
+        }
+
+        let needs_flush = bitflipper_scene.update(&mut ctx, &mut display);
+        if needs_flush {
+            display.flush();
+        }
+    }
+}
+
+fn do_titlescreen<Device, DataCmdPin>(
+    display: &mut Display<Device, DataCmdPin>,
+    btn_a: &mut impl InputPin,
+    btn_b: &mut impl InputPin,
+    delay: &mut Delay,
+) where
+    Device: embedded_hal::spi::SpiDevice,
+    DataCmdPin: embedded_hal::digital::OutputPin,
+{
+    let width = display.width() as i32;
+    let height = display.height() as i32;
+
+    // Fullscreen white-border
     let style_white_border = PrimitiveStyleBuilder::new()
         .stroke_width(1)
         .stroke_color(BinaryColor::On)
         .build();
-    let style_text = MonoTextStyle::new(&ascii::FONT_5X8, BinaryColor::On);
+    let r = 4;
+    let screen_border = RoundedRectangle::with_equal_corners(
+        Rectangle::new(Point::new(0, 0), Size::new(width as u32, height as u32)),
+        Size::new(r, r),
+    );
+    let _ = screen_border.draw_styled(&style_white_border, display);
 
-    // Draw a title screen of sorts
+    // Draw "bitflipper", stylized
     {
-        let width = display.width() as i32;
-        let height = display.height() as i32;
+        let mut bit_style = MonoTextStyle::new(&ascii::FONT_6X13_BOLD, BinaryColor::Off);
+        bit_style.set_background_color(Some(BinaryColor::On));
+        let bit = Text::new("BIT", Point::new(38, 19), bit_style);
+        let _ = bit.draw(display);
 
-        // Fullscreen white-border
-        let r = 4;
-        let screen_border = RoundedRectangle::with_equal_corners(
-            Rectangle::new(Point::new(0, 0), Size::new(width as u32, height as u32)),
-            Size::new(r, r),
-        );
-        let _ = screen_border.draw_styled(&style_white_border, &mut display);
-
-        // Draw "bitflipper", stylized
-        {
-            let mut bit_style = MonoTextStyle::new(&ascii::FONT_6X13_BOLD, BinaryColor::Off);
-            bit_style.set_background_color(Some(BinaryColor::On));
-            let bit = Text::new("BIT", Point::new(38, 16), bit_style);
-            let _ = bit.draw(&mut display);
-
-            let flipper_style = MonoTextStyle::new(&ascii::FONT_6X13_ITALIC, BinaryColor::On);
-            let flipper = Text::new("flipper", Point::new(58, 19), flipper_style);
-            let _ = flipper.draw(&mut display);
-        }
-
-        // Draw some lines below everything
-        for i in 0..3 {
-            let xs = width * 1 / 8 + 3 * (3 - i);
-            let xe = width * 7 / 8 - 3 * (3 - i);
-            let y = 3 * height / 4 + (i - 1) * 5 - 16;
-            let line0 = Line::new(Point::new(xs, y), Point::new(xe, y));
-            let _ = line0.draw_styled(&style_white_border, &mut display);
-        }
-
-        // Instruct the obediant
-        let anykey = Text::new(
-            "~PRESS ANY KEY~",
-            Point::new(32, 3 * height / 4 + 8),
-            style_text,
-        );
-        let _ = anykey.draw(&mut display);
-
-        display.flush();
-
-        // Wait until a button press
-        for _ in 0..15 {
-            let a = btn_a.is_low().unwrap();
-            let b = btn_b.is_low().unwrap();
-            if a | b {
-                break;
-            }
-
-            delay.delay_ms(100);
-        }
-
-        display.clear_unset();
+        let flipper_style = MonoTextStyle::new(&ascii::FONT_6X13_ITALIC, BinaryColor::On);
+        let flipper = Text::new("flipper", Point::new(58, 22), flipper_style);
+        let _ = flipper.draw(display);
     }
 
-    let mut rng = SmallRng::from_seed(core::array::from_fn(|_| 17));
-
-    // loop {
-    //     led.set_high().unwrap();
-    //     delay.delay_ms(100);
-    //     led.set_low().unwrap();
-    //     delay.delay_ms(500);
-    // }
-
-    let mut state = 0;
-    let mut conway_scene = pico::scene::ConwayScene::new(&display);
-    let mut bitflipper_scene = pico::scene::BitflipperScene::new(&display);
-
-    'screens: loop {
-        // Delay when changing
-        delay.delay_ms(500);
-
-        match state {
-            0 => {
-                use pico::scene::*;
-
-                display.clear_unset();
-                display.flush();
-
-                let mut ctx = Context {
-                    rng: &mut rng,
-                    btn_a: false,
-                    btn_b: false,
-                    delay: &mut delay,
-                };
-                bitflipper_scene.init(&mut ctx);
-
-                loop {
-                    ctx.btn_a = btn_a.is_low().unwrap();
-                    ctx.btn_b = btn_b.is_low().unwrap();
-
-                    // Reset back to BOOTSEL so that the next cargo-run updates our code
-                    if ctx.btn_a && ctx.btn_b {
-                        hal::rom_data::reset_to_usb_boot(0, 0);
-                        unreachable!();
-                    }
-
-                    // Press A to go to the next screen
-                    // if ctx.btn_a && !ctx.btn_b {
-                    //     state += 1;
-                    //     bitflipper_scene.deinit(&mut ctx);
-                    //     continue 'screens;
-                    // } else {
-                    let needs_flush = bitflipper_scene.update(&mut ctx, &mut display);
-                    if needs_flush {
-                        display.flush();
-                    }
-                    // }
-                }
-            }
-
-            1 => {
-                use pico::scene::*;
-
-                display.clear_unset();
-                display.flush();
-
-                let mut ctx = Context {
-                    rng: &mut rng,
-                    btn_a: false,
-                    btn_b: false,
-                    delay: &mut delay,
-                };
-                conway_scene.init(&mut ctx);
-
-                loop {
-                    ctx.btn_a = btn_a.is_low().unwrap();
-                    ctx.btn_b = btn_b.is_low().unwrap();
-
-                    // Reset back to BOOTSEL so that the next cargo-run updates our code
-                    if ctx.btn_a && ctx.btn_b {
-                        hal::rom_data::reset_to_usb_boot(0, 0);
-                        unreachable!();
-                    }
-
-                    // Press A to go to the next screen
-                    if ctx.btn_a && !ctx.btn_b {
-                        state += 1;
-                        conway_scene.deinit(&mut ctx);
-                        continue 'screens;
-                    } else {
-                        let needs_flush = conway_scene.update(&mut ctx, &mut display);
-                        if needs_flush {
-                            display.flush();
-                        }
-                    }
-                }
-            }
-
-            // Copy and Paste this block when adding a new "screen"
-            _ => {
-                display.clear_unset();
-                let text = format!("End of the line.\nNo more scenes.\nstate={state:?}");
-                let text = Text::new(&text, Point::new(8, 16), style_text);
-                let _ = text.draw(&mut display);
-                display.flush();
-                delay.delay_ms(1000);
-
-                loop {
-                    let a = btn_a.is_low().unwrap();
-                    let b = btn_b.is_low().unwrap();
-
-                    match (a, b) {
-                        // Reset back to BOOTSEL so that the next cargo-run updates our code
-                        (true, true) => hal::rom_data::reset_to_usb_boot(0, 0),
-
-                        // Press A to go to the next screen
-                        (true, _) => {
-                            // Do this:
-                            // state += 1;
-                            // continue 'screens;
-
-                            // Not this:
-                            state = 0;
-                            continue 'screens;
-                        }
-
-                        (_, true) => {
-                            //
-                        }
-
-                        _ => {}
-                    }
-
-                    delay.delay_ms(100);
-                }
-            }
-        }
+    // Draw some lines below everything
+    for i in 0..3 {
+        let xs = width * 1 / 8 + 3 * (3 - i);
+        let xe = width * 7 / 8 - 3 * (3 - i);
+        let y = 3 * height / 4 + (i - 1) * 5 - 16;
+        let line0 = Line::new(Point::new(xs, y), Point::new(xe, y));
+        let _ = line0.draw_styled(&style_white_border, display);
     }
+
+    // Instruct the obediant
+    let anykey = Text::new(
+        "PRESS ANY KEY",
+        Point::new(32, 3 * height / 4 + 4),
+        MonoTextStyle::new(&ascii::FONT_5X8, BinaryColor::On),
+    );
+    let _ = anykey.draw(display);
+
+    display.flush();
+
+    // Wait until a button press
+    loop {
+        let a = btn_a.is_low().unwrap();
+        let b = btn_b.is_low().unwrap();
+        if a || b {
+            break;
+        }
+
+        delay.delay_ms(100);
+    }
+
+    display.clear_unset();
 }
