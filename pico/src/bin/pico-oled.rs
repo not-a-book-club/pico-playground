@@ -177,8 +177,7 @@ fn main() -> ! {
 
         // Reset back to BOOTSEL so that the next cargo-run updates our code
         if ctx.btn_a && ctx.btn_b {
-            hal::rom_data::reset_to_usb_boot(0, 0);
-            unreachable!();
+            // hal::rom_data::reset_to_usb_boot(0, 0);
         }
 
         let needs_flush = bitflipper_scene.update(&mut ctx, &mut display);

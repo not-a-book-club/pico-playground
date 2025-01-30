@@ -64,6 +64,10 @@ impl BitGrid {
         old
     }
 
+    pub fn clear(&mut self) {
+        self.as_mut_bytes().fill(0b0000_0000_u8);
+    }
+
     pub fn as_bytes(&self) -> &[u8] {
         &self.buf
     }

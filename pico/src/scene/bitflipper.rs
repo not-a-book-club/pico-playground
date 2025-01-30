@@ -138,14 +138,23 @@ impl Scene for BitflipperScene {
         DataCmdPin: embedded_hal::digital::OutputPin,
         Device: embedded_hal::spi::SpiDevice,
     {
-        if self.frames_since_input > 20 && ctx.btn_a {
+        let btn_a = (self.frames_since_input > 20) && ctx.btn_a;
+        let btn_b = (self.frames_since_input > 20) && ctx.btn_b;
+
+        if btn_a && btn_b {
+            self.frames_since_input = -1;
+
+            self.cycle_count = 0;
+            self.slopes.clear();
+            self.set_slope_for_cycle_count(ctx);
+
+            self.bits.clear();
+        } else if btn_a {
             self.frames_since_input = -1;
             if self.step_index > 0 || self.step_index.abs() < STEP_NUMERATORS.len() as i32 {
                 self.step_index -= 1;
             }
-        }
-
-        if self.frames_since_input > 20 && ctx.btn_b {
+        } else if btn_b {
             self.frames_since_input = -1;
             if self.step_index < STEP_NUMERATORS.len() as i32 {
                 self.step_index += 1;
@@ -167,8 +176,8 @@ impl Scene for BitflipperScene {
             self.flip_and_advance(pixel_delta.signum());
         }
 
-        display.flush_with(&self.bits);
+        display.copy_image(&self.bits);
 
-        false
+        true
     }
 }

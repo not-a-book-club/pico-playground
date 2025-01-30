@@ -133,19 +133,13 @@ where
     /// This acts like [`Display::flush()`] but with the provided `image` instead of the stored framebuffer.
     ///
     /// The contents of the Display framebuffer cache are not changed after this call.
-    pub fn flush_with(&mut self, image: &BitGrid) {
-        let width = WIDTH as i16;
-        let height = HEIGHT as i16;
+    pub fn copy_image(&mut self, image: &BitGrid) {
+        assert_eq!(image.width(), self.framebuffer.width());
+        assert_eq!(image.height(), self.framebuffer.height());
 
-        let bytes = image.as_bytes();
-        self.driver.set_page_addr(0); // ???
-        for y in 0..height {
-            self.driver.set_column_addr(y as u8);
-            for x in (0..width).step_by(8).rev() {
-                let (idx, _) = image.idx(x, y);
-                self.driver.data(bytes[idx].reverse_bits());
-            }
-        }
+        self.framebuffer
+            .as_mut_bytes()
+            .copy_from_slice(image.as_bytes());
     }
 
     /// Consume the Display object and recover its hal objects.
