@@ -65,7 +65,7 @@ fn main() -> ! {
         static HEAP: Heap = Heap::empty();
 
         // NOTE: The rp2040 has 264 kB of on-chip SRAM
-        const HEAP_SIZE: usize = 132 * 1024;
+        const HEAP_SIZE: usize = 3 * 1024;
         static mut HEAP_MEM: [MaybeUninit<u8>; HEAP_SIZE] = [MaybeUninit::uninit(); HEAP_SIZE];
 
         unsafe {
