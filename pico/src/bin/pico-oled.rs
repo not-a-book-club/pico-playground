@@ -283,23 +283,3 @@ fn entry() -> ! {
     hal::rom_data::reset_to_usb_boot(0, 0);
     unreachable!()
 }
-
-// // Reboot to BOOTSEL on panic
-// #[panic_handler]
-// fn panic(info: &core::panic::PanicInfo) -> ! {
-//     use core::sync::atomic::*;
-
-//     static PANICKED: AtomicBool = AtomicBool::new(false);
-
-//     cortex_m::interrupt::disable();
-
-//     // Guard against infinite recursion, just in case.
-//     if !PANICKED.load(Ordering::Relaxed) {
-//         PANICKED.store(true, Ordering::Relaxed);
-//         error!("[PANIC]: {:?}", info);
-//     }
-
-//     // hal::rom_data::reset_to_usb_boot(0, 0);
-//     cortex_m::asm::udf();
-// }
-// use panic_probe as _;
