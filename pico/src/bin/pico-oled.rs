@@ -8,7 +8,6 @@
 
 // Runtime things
 extern crate alloc;
-use defmt_rtt as _;
 
 // Embedded things
 use cortex_m::delay::Delay;
@@ -23,10 +22,6 @@ use hal::fugit::*;
 use hal::prelude::*;
 use rp_pico::hal;
 
-// Import all 4 even if we aren't using them at this moment
-#[allow(unused_imports)]
-use defmt::{debug, error, info, warn};
-
 use rand::{rngs::SmallRng, SeedableRng};
 
 use pico::oled::{Display, SH1107Driver};
@@ -34,7 +29,7 @@ use pico::scene::*;
 
 // Reboot to BOOTSEL on panic
 #[panic_handler]
-fn panic(info: &core::panic::PanicInfo) -> ! {
+fn panic(_info: &core::panic::PanicInfo) -> ! {
     use core::sync::atomic::*;
 
     static PANICKED: AtomicBool = AtomicBool::new(false);
@@ -44,7 +39,7 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
     // Guard against infinite recursion, just in case.
     if !PANICKED.load(Ordering::Relaxed) {
         PANICKED.store(true, Ordering::Relaxed);
-        error!("[PANIC]: {:?}", info);
+        // error!("[PANIC]: {:?}", info);
     }
 
     hal::rom_data::reset_to_usb_boot(0, 0);
@@ -107,25 +102,6 @@ fn main() -> ! {
         sio.gpio_bank0,
         &mut pac.RESETS,
     );
-
-    // Log some interesting data from ROM
-    unsafe {
-        use hal::rom_data as rom;
-
-        info!("\"{}\"", rom::copyright_string());
-        info!("rom_version_number: {}", rom::rom_version_number());
-
-        let fplib_start = rom::fplib_start();
-        let fplib_end = rom::fplib_end();
-        info!(
-            "fplib: {} bytes [0x{:08x}, 0x{:08x}]",
-            fplib_end.offset_from(fplib_start),
-            fplib_start,
-            fplib_end,
-        );
-
-        info!("bootrom git rev: {}", rom::git_revision());
-    }
 
     // === OLED Specific setup ==========================================
     let dc = pins.gpio8.into_push_pull_output();

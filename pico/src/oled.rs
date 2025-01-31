@@ -77,9 +77,15 @@ where
     /// Atomically flips the pixel at the given coordiante.
     ///
     /// This is logically equivilent to:
-    /// ```rust,no_run
+    /// ```no_run
+    /// # fn example<Device, DataCmdPin>(mut display: pico::oled::Display<Device, DataCmdPin>)
+    /// # where
+    /// #   Device: embedded_hal::spi::SpiDevice,
+    /// #   DataCmdPin: embedded_hal::digital::OutputPin {
+    /// # let (x, y) = (0, 0);
     /// let is_set = display.get(x, y);
     /// display.set(x, y, !is_set);
+    /// # }
     /// ```
     ///
     /// The Display can adjust the set/unset color mapping.

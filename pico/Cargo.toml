@@ -16,18 +16,20 @@ path = "src/bin/pico-oled.rs"
 test = false
 bench = false
 
+[target.'cfg(all(target_arch = "arm", target_os = "none"))'.dependencies]
+defmt-rtt = "0.4"
+rp-pico = "0.9"
+
 [dependencies]
 # Embedded Things
 cortex-m = "0.7"
 cortex-m-rt = "0.7"
 defmt = "0.3"
-defmt-rtt = "0.4"
 embedded-alloc = "0.6"
 embedded-graphics = "0.8"
 embedded-hal = "1"
 embedded-hal-bus = "0.3"
 panic-probe = "0.3"
-rp-pico = "0.9"
 
 # Local deps
 simulations = { path = "../simulations", default-features = false }

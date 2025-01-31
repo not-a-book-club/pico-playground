@@ -4,7 +4,6 @@
 
 // Runtime things
 extern crate alloc;
-use defmt_rtt as _;
 use panic_probe as _;
 
 // Embedded things
@@ -15,10 +14,6 @@ use embedded_hal_bus::spi::ExclusiveDevice;
 use hal::fugit::*;
 use hal::prelude::*;
 use rp_pico::hal;
-
-// Import all 4 even if we aren't using them at this moment
-#[allow(unused_imports)]
-use defmt::{debug, error, info, warn};
 
 use rand::{rngs::SmallRng, SeedableRng};
 use simulations::Elementry;
@@ -80,25 +75,6 @@ fn main() -> ! {
         sio.gpio_bank0,
         &mut pac.RESETS,
     );
-
-    // Log some interesting data from ROM
-    unsafe {
-        use hal::rom_data as rom;
-
-        info!("\"{}\"", rom::copyright_string());
-        info!("rom_version_number: {}", rom::rom_version_number());
-
-        let fplib_start = rom::fplib_start();
-        let fplib_end = rom::fplib_end();
-        info!(
-            "fplib: {} bytes [0x{:08x}, 0x{:08x}]",
-            fplib_start.offset_from(fplib_end),
-            fplib_start,
-            fplib_end,
-        );
-
-        info!("bootrom git rev: {}", rom::git_revision());
-    }
 
     // === LCD Specific Code Begins ===========================================
 
@@ -171,8 +147,6 @@ fn main() -> ! {
     }
 
     let mut display = LcdDriver::new(spi_dev, dc, &mut rst, &mut delay);
-    let display_id = display.id();
-    info!("Display info: {:?}", display_id);
 
     // Generate more of these at: https://coolors.co/313715-d16014
     // Pick two and hit Space to generate random pairs until you like what you see
