@@ -196,7 +196,12 @@ impl Scene for BitflipperScene {
             )
             .draw_styled(&style_white_border, display);
 
-            let line = alloc::format!("({dx},{dy})", dx = self.dir_x.abs(), dy = self.dir_y.abs());
+            let line = alloc::format!(
+                "({dx},{dy}), {slopes}",
+                dx = self.dir_x.abs(),
+                dy = self.dir_y.abs(),
+                slopes = self.slopes.len()
+            );
             let text = Text::new(
                 &line,
                 Point::new(4, base_y + 9),
