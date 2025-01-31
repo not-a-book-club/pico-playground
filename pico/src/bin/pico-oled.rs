@@ -200,7 +200,7 @@ fn entry() -> ! {
         use core::mem::MaybeUninit;
 
         // NOTE: The rp2040 has 264 kB of on-chip SRAM
-        const HEAP_SIZE: usize = 3 * 1024;
+        const HEAP_SIZE: usize = 192 * 1024;
         static mut HEAP_MEM: [MaybeUninit<u8>; HEAP_SIZE] = [MaybeUninit::uninit(); HEAP_SIZE];
 
         unsafe {
