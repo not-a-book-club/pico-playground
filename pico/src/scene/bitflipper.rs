@@ -28,6 +28,8 @@ pub struct BitflipperScene {
 const STEP_NUMERATORS:   [i32; 21] = [1, 1, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1597, 2584, 4181];
 #[rustfmt::skip]
 const STEP_DENOMINATORS: [i32; 21] = [5, 3, 2, 1, 1, 1, 1, 1,  1,  1,  1,  1,  1,   1,   1,   1,   1,   1,    1,    1,    1];
+const MIN_CYCLE: i32 = -(1 << 11);
+const MAX_CYCLE: i32 = (1 << 11) - 1;
 
 impl BitflipperScene {
     pub fn new<Device, DataCmdPin>(display: &crate::oled::Display<Device, DataCmdPin>) -> Self
@@ -167,6 +169,14 @@ impl Scene for BitflipperScene {
         for _ in 0..pixel_delta.abs() {
             if self.x == 0 && self.y == 0 {
                 self.cycle_count += self.step_index.signum();
+
+                if self.step_index > 0 && self.cycle_count == MAX_CYCLE {
+                    self.cycle_count = MIN_CYCLE + 1
+                }
+                if self.step_index < 0 && self.cycle_count == MIN_CYCLE {
+                    self.cycle_count = MAX_CYCLE - 1
+                }
+
                 self.set_slope_for_cycle_count(ctx);
             }
 
