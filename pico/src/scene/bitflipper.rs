@@ -50,8 +50,11 @@ impl BitflipperScene {
             t: 0,
             x: 0,
             y: 0,
-            dir_x: 183,
-            dir_y: 203,
+            // dir_x: 183,
+            // dir_y: 203,
+            // Only one frame?
+            dir_x: 374,
+            dir_y: 3895,
             cycle_count: 0,
             frames_since_input: 0,
             slopes: vec![],
