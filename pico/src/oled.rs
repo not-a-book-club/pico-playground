@@ -152,6 +152,10 @@ where
     pub fn free(self) -> (Device, DataCmdPin) {
         self.driver.free()
     }
+
+    pub fn driver(&mut self) -> &mut SH1107Driver<Device, DataCmdPin> {
+        &mut self.driver
+    }
 }
 
 // This trait is exposed from `embedded_graphics`
