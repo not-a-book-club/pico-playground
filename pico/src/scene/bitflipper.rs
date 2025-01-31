@@ -1,4 +1,10 @@
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
+
+use embedded_graphics::mono_font::{ascii, MonoTextStyle};
+use embedded_graphics::pixelcolor::BinaryColor;
+use embedded_graphics::prelude::*;
+use embedded_graphics::primitives::*;
+use embedded_graphics::text::Text;
 
 use super::{Context, Scene};
 use crate::oled::Display;
@@ -31,31 +37,22 @@ impl BitflipperScene {
     {
         let view_width = display.width() as i32;
         let view_height = display.height() as i32;
-
-        let step_index = 6; // vroom vroom
-        let t = 0;
-        let x = 0;
-        let y = 0;
-        let dir_x = 183;
-        let dir_y = 203;
         let bits = simulations::BitGrid::new(view_width as usize, view_height as usize);
-        let cycle_count = 0;
-        let frames_since_input = 0;
-        let slopes = Vec::new();
 
         Self {
             view_height,
             view_width,
-            step_index,
-            t,
-            x,
-            y,
-            dir_x,
-            dir_y,
             bits,
-            cycle_count,
-            frames_since_input,
-            slopes,
+
+            step_index: 6, // vroom vroom
+            t: 0,
+            x: 0,
+            y: 0,
+            dir_x: 183,
+            dir_y: 203,
+            cycle_count: 0,
+            frames_since_input: 0,
+            slopes: vec![],
         }
     }
 
@@ -177,6 +174,36 @@ impl Scene for BitflipperScene {
         }
 
         display.copy_image(&self.bits);
+
+        // Draw some nums on the bottom bar
+        {
+            let base_y = 48;
+            let style_white_border = PrimitiveStyleBuilder::new()
+                .stroke_width(1)
+                .stroke_color(BinaryColor::On)
+                .fill_color(BinaryColor::Off)
+                .build();
+
+            let _ = RoundedRectangle::with_equal_corners(
+                Rectangle::new(
+                    Point::new(0, base_y),
+                    Size::new(
+                        self.view_width as u32,
+                        self.view_height as u32 - base_y as u32,
+                    ),
+                ),
+                Size::new(5, 5),
+            )
+            .draw_styled(&style_white_border, display);
+
+            let line = alloc::format!("({dx},{dy})", dx = self.dir_x.abs(), dy = self.dir_y.abs());
+            let text = Text::new(
+                &line,
+                Point::new(4, base_y + 9),
+                MonoTextStyle::new(&ascii::FONT_5X8, BinaryColor::On),
+            );
+            let _ = text.draw(display);
+        }
 
         true
     }
