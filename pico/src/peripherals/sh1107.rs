@@ -78,7 +78,7 @@ where
     ///
     /// This is logically equivilent to:
     /// ```no_run
-    /// # fn example<Device, DataCmdPin>(mut display: pico::oled::SH1107Display<Device, DataCmdPin>)
+    /// # fn example<Device, DataCmdPin>(mut display: pico::peripherals::SH1107Display<Device, DataCmdPin>)
     /// # where
     /// #   Device: embedded_hal::spi::SpiDevice,
     /// #   DataCmdPin: embedded_hal::digital::OutputPin {

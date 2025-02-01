@@ -30,7 +30,7 @@ use defmt::{debug, error, info, warn};
 
 use rand::{rngs::SmallRng, SeedableRng};
 
-use pico::oled::{SH1107Display, SH1107Driver};
+use pico::peripherals::{SH1107Display, SH1107Driver};
 use pico::scene::*;
 
 /// "App" entry point, after initializing all of our clocks, pins, and friends

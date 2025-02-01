@@ -3,7 +3,7 @@
 use cortex_m::delay::Delay;
 use rand::rngs::SmallRng;
 
-use crate::oled::SH1107Display;
+use crate::peripherals::SH1107Display;
 
 mod conway;
 pub use conway::*;

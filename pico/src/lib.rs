@@ -10,11 +10,7 @@ extern crate alloc;
 pub mod image;
 pub use image::{Image, Rgb565};
 
-pub mod lcd;
-pub use lcd::LcdDriver;
-
-pub mod oled;
-
+pub mod peripherals;
 pub mod scene;
 
 pub const AOC_BLUE: Rgb565 = Rgb565::from_rgb888(0x0f_0f_23);

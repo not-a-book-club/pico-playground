@@ -4,7 +4,7 @@ use embedded_graphics::prelude::*;
 use embedded_graphics::primitives::*;
 use embedded_graphics::text::Text;
 
-use crate::oled::SH1107Display;
+use crate::peripherals::SH1107Display;
 
 use super::{Context, Scene};
 
@@ -17,7 +17,7 @@ pub struct ConwayScene {
 }
 
 impl ConwayScene {
-    pub fn new<Device, DataCmdPin>(display: &crate::oled::SH1107Display<Device, DataCmdPin>) -> Self
+    pub fn new<Device, DataCmdPin>(display: &SH1107Display<Device, DataCmdPin>) -> Self
     where
         DataCmdPin: embedded_hal::digital::OutputPin,
         Device: embedded_hal::spi::SpiDevice,

@@ -19,6 +19,7 @@ use rand::{rngs::SmallRng, SeedableRng};
 use simulations::Elementry;
 use simulations::Life;
 
+use pico::peripherals::*;
 use pico::*;
 
 #[cortex_m_rt::entry]
@@ -146,7 +147,7 @@ fn main() -> ! {
         pwm.enable();
     }
 
-    let mut display = LcdDriver::new(spi_dev, dc, &mut rst, &mut delay);
+    let mut display = st7789::ST7789Display::new(spi_dev, dc, &mut rst, &mut delay);
 
     // Generate more of these at: https://coolors.co/313715-d16014
     // Pick two and hit Space to generate random pairs until you like what you see
@@ -160,13 +161,13 @@ fn main() -> ! {
     ];
     let mut palette = 0;
 
-    let mut image = Image::new(lcd::WIDTH, lcd::HEIGHT);
+    let mut image = Image::new(st7789::WIDTH, st7789::HEIGHT);
     let mut rng = SmallRng::from_seed(core::array::from_fn(|_| 17));
 
     // Hold down Y to go into the elementary sim
     let do_life = btn_y.is_high().unwrap();
     if do_life {
-        let mut sim = Life::new(lcd::WIDTH as usize / 4, lcd::HEIGHT as usize / 4);
+        let mut sim = Life::new(st7789::WIDTH as usize / 4, st7789::HEIGHT as usize / 4);
         sim.clear_random(&mut rng);
 
         loop {
@@ -224,7 +225,7 @@ fn main() -> ! {
         // let rule = 184;
 
         let scale = 3;
-        let mut sim = Elementry::new(rule, (lcd::HEIGHT / scale) as usize);
+        let mut sim = Elementry::new(rule, (st7789::HEIGHT / scale) as usize);
         sim.set(sim.width() / 2, true);
         image.fill(palettes[palette][0]);
 
@@ -233,7 +234,7 @@ fn main() -> ! {
         // Run our simulation sideways so we can use "vertical" scrolling to move it smoothly.
         loop {
             // Each column is a snapshot of the simulation
-            for x in (0..lcd::WIDTH).step_by(scale as usize).rev() {
+            for x in (0..st7789::WIDTH).step_by(scale as usize).rev() {
                 {
                     let a = btn_a.is_low().unwrap();
                     let b = btn_b.is_low().unwrap();

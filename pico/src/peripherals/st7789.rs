@@ -12,7 +12,7 @@ pub const WIDTH: u16 = 240;
 pub const HEIGHT: u16 = 240;
 
 /// Driver for the `ST7789VW` LCD Display
-pub struct LcdDriver<Device, DataCmdPin> {
+pub struct ST7789Display<Device, DataCmdPin> {
     /// SPI Device for reading+writing
     dev: Device,
 
@@ -30,7 +30,7 @@ pub struct DisplayId {
 
 #[allow(dead_code)]
 /// High level usage of the LCD Display
-impl<Device, DataCmdPin> LcdDriver<Device, DataCmdPin>
+impl<Device, DataCmdPin> ST7789Display<Device, DataCmdPin>
 where
     Device: SpiDevice,
     DataCmdPin: OutputPin,
@@ -164,7 +164,7 @@ impl MadCtl {
 
 /// Lower level usage of the display that maps directly to a HW command
 #[allow(dead_code)]
-impl<Device, DataCmdPin> LcdDriver<Device, DataCmdPin>
+impl<Device, DataCmdPin> ST7789Display<Device, DataCmdPin>
 where
     Device: SpiDevice,
     DataCmdPin: OutputPin,
