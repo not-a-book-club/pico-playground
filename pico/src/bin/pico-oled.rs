@@ -270,6 +270,8 @@ fn entry() -> ! {
 
     let driver = SH1107Driver::new(spi_dev, dc, &mut rst, &mut delay);
     let mut display = SH1107Display::new(driver);
+    // TODO: Maybe we could dim the display slowly so the user doesn't notice and save battery?
+    // display.driver().set_contrast(0);
 
     match main(&mut delay, &mut display, &mut btn_a, &mut btn_b, &mut led) {
         Ok(()) => {

@@ -28,7 +28,6 @@ pub struct DisplayId {
     pub module_id: u8,
 }
 
-#[allow(dead_code)]
 /// High level usage of the LCD Display
 impl<Device, DataCmdPin> ST7789Display<Device, DataCmdPin>
 where
