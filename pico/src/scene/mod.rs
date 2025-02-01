@@ -3,7 +3,7 @@
 use cortex_m::delay::Delay;
 use rand::rngs::SmallRng;
 
-use crate::oled::Display;
+use crate::oled::SH1107Display;
 
 mod conway;
 pub use conway::*;
@@ -30,7 +30,7 @@ pub trait Scene {
     fn update<Device, DataCmdPin>(
         &mut self,
         ctx: &mut Context<'_>,
-        display: &mut Display<Device, DataCmdPin>,
+        display: &mut SH1107Display<Device, DataCmdPin>,
     ) -> bool
     where
         DataCmdPin: embedded_hal::digital::OutputPin,

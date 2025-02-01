@@ -24,12 +24,12 @@ const HEIGHT: u16 = 64;
 ///
 /// The display RAM is populated from the framebuffer, but the framebuffer is never
 /// updated by reading back the display RAM.
-pub struct Display<Device, DataCmdPin> {
+pub struct SH1107Display<Device, DataCmdPin> {
     driver: SH1107Driver<Device, DataCmdPin>,
     framebuffer: BitGrid,
 }
 
-impl<Device, DataCmdPin> Display<Device, DataCmdPin>
+impl<Device, DataCmdPin> SH1107Display<Device, DataCmdPin>
 where
     Device: SpiDevice,
     DataCmdPin: OutputPin,
@@ -78,7 +78,7 @@ where
     ///
     /// This is logically equivilent to:
     /// ```no_run
-    /// # fn example<Device, DataCmdPin>(mut display: pico::oled::Display<Device, DataCmdPin>)
+    /// # fn example<Device, DataCmdPin>(mut display: pico::oled::SH1107Display<Device, DataCmdPin>)
     /// # where
     /// #   Device: embedded_hal::spi::SpiDevice,
     /// #   DataCmdPin: embedded_hal::digital::OutputPin {
@@ -159,7 +159,7 @@ where
 }
 
 // This trait is exposed from `embedded_graphics`
-impl<Device, DataCmdPin> Dimensions for Display<Device, DataCmdPin>
+impl<Device, DataCmdPin> Dimensions for SH1107Display<Device, DataCmdPin>
 where
     Device: SpiDevice,
     DataCmdPin: OutputPin,
@@ -176,7 +176,7 @@ where
 }
 
 // This trait is exposed from `embedded_graphics`
-impl<Device, DataCmdPin> DrawTarget for Display<Device, DataCmdPin>
+impl<Device, DataCmdPin> DrawTarget for SH1107Display<Device, DataCmdPin>
 where
     Device: SpiDevice,
     DataCmdPin: OutputPin,

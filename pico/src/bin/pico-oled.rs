@@ -30,13 +30,13 @@ use defmt::{debug, error, info, warn};
 
 use rand::{rngs::SmallRng, SeedableRng};
 
-use pico::oled::{Display, SH1107Driver};
+use pico::oled::{SH1107Display, SH1107Driver};
 use pico::scene::*;
 
 /// "App" entry point, after initializing all of our clocks, pins, and friends
 fn main<Device, DataCmdPin>(
     delay: &mut Delay,
-    display: &mut Display<Device, DataCmdPin>,
+    display: &mut SH1107Display<Device, DataCmdPin>,
     btn_a: &mut impl InputPin,
     btn_b: &mut impl InputPin,
     led: &mut impl OutputPin,
@@ -269,7 +269,7 @@ fn entry() -> ! {
     let spi_dev = embedded_hal_bus::spi::ExclusiveDevice::new(spi_bus, cs, timer).unwrap();
 
     let driver = SH1107Driver::new(spi_dev, dc, &mut rst, &mut delay);
-    let mut display = Display::new(driver);
+    let mut display = SH1107Display::new(driver);
 
     match main(&mut delay, &mut display, &mut btn_a, &mut btn_b, &mut led) {
         Ok(()) => {

@@ -7,7 +7,7 @@ use embedded_graphics::primitives::*;
 use embedded_graphics::text::Text;
 
 use super::{Context, Scene};
-use crate::oled::Display;
+use crate::oled::SH1107Display;
 
 pub struct BitflipperScene {
     view_width: i32,
@@ -32,7 +32,7 @@ const MIN_CYCLE: i32 = -(1 << 11);
 const MAX_CYCLE: i32 = (1 << 11) - 1;
 
 impl BitflipperScene {
-    pub fn new<Device, DataCmdPin>(display: &crate::oled::Display<Device, DataCmdPin>) -> Self
+    pub fn new<Device, DataCmdPin>(display: &crate::oled::SH1107Display<Device, DataCmdPin>) -> Self
     where
         DataCmdPin: embedded_hal::digital::OutputPin,
         Device: embedded_hal::spi::SpiDevice,
@@ -134,7 +134,7 @@ impl Scene for BitflipperScene {
     fn update<Device, DataCmdPin>(
         &mut self,
         ctx: &mut Context<'_>,
-        display: &mut Display<Device, DataCmdPin>,
+        display: &mut SH1107Display<Device, DataCmdPin>,
     ) -> bool
     where
         DataCmdPin: embedded_hal::digital::OutputPin,
