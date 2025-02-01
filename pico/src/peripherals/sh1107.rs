@@ -19,7 +19,7 @@ const HEIGHT: u16 = 64;
 ///
 /// ## The "Framebuffer"
 /// The display object owns its own cache of image data, the framebuffer, that may be out of
-/// sync with the contents of the display's RAM. Always call [`Display::flush()`] when you're
+/// sync with the contents of the display's RAM. Always call [`SH1107Display::flush()`] when you're
 /// done drawing to ensure the display is up to date.
 ///
 /// The display RAM is populated from the framebuffer, but the framebuffer is never
@@ -37,7 +37,7 @@ where
     /// Constructs a new Display interface from the hal driver object
     ///
     /// The framebuffer is initialized to all `false` values.
-    /// See [`Display::clear_set`] and [`Display::clear_unset`] for quick ways to clear the display.
+    /// See [`SH1107Display::clear_set`] and [`SH1107Display::clear_unset`] for quick ways to clear the display.
     pub fn new(driver: SH1107Driver<Device, DataCmdPin>) -> Self {
         Self {
             driver,
@@ -136,7 +136,7 @@ where
 
     /// Writes the full state of the given framebuffer to the display
     ///
-    /// This acts like [`Display::flush()`] but with the provided `image` instead of the stored framebuffer.
+    /// This acts like [`SH1107Display::flush()`] but with the provided `image` instead of the stored framebuffer.
     ///
     /// The contents of the Display framebuffer cache are not changed after this call.
     pub fn copy_image(&mut self, image: &BitGrid) {
