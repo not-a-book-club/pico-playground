@@ -22,7 +22,7 @@ pub const OHNO_PINK: Rgb565 = Rgb565::new(0xF8_1F);
 pub fn chunk_lines<'a>(text: &'a str, chars_per_line: usize, mut callback: impl FnMut(&'a str)) {
     let mut bytes: &[u8] = text.as_bytes();
 
-    while !bytes.is_empty() {
+    while bytes.len() > chars_per_line {
         // println!("===");
         // println!("  + bytes.len()={}", bytes.len());
 
@@ -76,6 +76,14 @@ pub fn chunk_lines<'a>(text: &'a str, chars_per_line: usize, mut callback: impl 
         }
     }
 
+    let line = unsafe { core::str::from_utf8_unchecked(bytes) };
+    let line = line.trim_end();
+    if !line.trim().is_empty() {
+        for part in line.split("\n") {
+            callback(part);
+        }
+    }
+
     // println!("  + bytes.len()={}", bytes.len());
 }
 
@@ -114,6 +122,10 @@ mod test {
         "  hwgitref = 0xffffffff",
         "........................",
     ])]
+    // Check some cases where we SHOULD NOT line break
+    #[case::short_alpha("abcd", 100, ["abcd"])]
+    #[case::short_alpha_white("abcd defg", 100, ["abcd defg"])]
+    #[case::short_alpha_ugly("abcd-defg", 100, ["abcd-defg"])]
     #[timeout(Duration::from_millis(10))]
     fn check_chunk_lines(
         #[case] text: impl AsRef<str>,
