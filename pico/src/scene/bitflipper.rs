@@ -25,9 +25,9 @@ pub struct BitflipperScene {
 }
 
 #[rustfmt::skip]
-const STEP_NUMERATORS:   [i32; 21] = [1, 1, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1597, 2584, 4181];
+const STEP_NUMERATORS:   [i32; 24] = [1, 1, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1597, 2584, 4181, 4181 << 1, 4181 << 2, 4181 << 3];
 #[rustfmt::skip]
-const STEP_DENOMINATORS: [i32; 21] = [5, 3, 2, 1, 1, 1, 1, 1,  1,  1,  1,  1,  1,   1,   1,   1,   1,   1,    1,    1,    1];
+const STEP_DENOMINATORS: [i32; 24] = [5, 3, 2, 1, 1, 1, 1, 1,  1,  1,  1,  1,  1,   1,   1,   1,   1,   1,    1,    1,    1,         1,         1,         1];
 const MIN_CYCLE: i32 = -(1 << 11);
 const MAX_CYCLE: i32 = (1 << 11) - 1;
 

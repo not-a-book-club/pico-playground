@@ -10,7 +10,8 @@ if [ "$#" -eq 2 ] && [ "$2" == "looping" ]; then
     cargo test   --lib --target=aarch64-apple-darwin --quiet
 
     cargo build
-    cargo run
+    # cargo run
+    cargo run --release
 
     cargo doc --document-private-items
 
