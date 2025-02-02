@@ -2,10 +2,10 @@
 
 if [ "$#" -eq 2 ] && [ "$2" == "looping" ]; then
     set -x
-
-    cargo clippy --tests --lib --target=aarch64-apple-darwin -- -D warnings
     cargo clippy
 
+    set -xe
+    cargo clippy --tests --lib --target=aarch64-apple-darwin
     cargo fmt
     cargo test   --lib --target=aarch64-apple-darwin --quiet
 
