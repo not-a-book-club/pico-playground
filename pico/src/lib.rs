@@ -20,68 +20,63 @@ pub const OHNO_PINK: Rgb565 = Rgb565::new(0xF8_1F);
 /// Chunk lines for drawing on a small display
 //  TODO: Make it handle non-alpha characters too (and simpler)
 pub fn chunk_lines<'a>(text: &'a str, chars_per_line: usize, mut callback: impl FnMut(&'a str)) {
-    let mut last_space = None;
     let mut bytes: &[u8] = text.as_bytes();
 
-    let mut i = 1;
-    while i < bytes.len() {
-        if bytes[i] == b' ' {
-            last_space = Some(i);
+    while !bytes.is_empty() {
+        // println!("===");
+        // println!("  + bytes.len()={}", bytes.len());
 
-            // Skip the rest of the spaces here
-            while bytes.get(i) == Some(&b' ') {
-                i += 1;
-            }
-        }
-        debug_assert!(bytes.get(i) != Some(&b' '));
+        let next_len = bytes.len().min(chars_per_line);
+        // println!("  + Searching {} bytes", next_len);
+        // println!("    + {:?}", unsafe {
+        //     core::str::from_utf8_unchecked(&bytes[..next_len])
+        // });
 
-        if i < chars_per_line {
-            // Go find more
-            i += 1;
-            continue;
-        }
-
-        let line: &[u8];
-        if let Some(ls) = last_space.take() {
-            line = &bytes[..ls];
-
-            // Note: We expclude the last space (b' ') with this +1:
-            bytes = &bytes[(ls + 1)..];
-            i -= ls;
+        // Within the next line's worth of bytes, find somewhere to break.
+        let break_idx: usize = if let Some(idx) = bytes[..next_len].iter().position(|&b| b == b'\n')
+        {
+            // println!("  + Found first newline, using idx={idx}");
+            idx + 1
+        } else if let Some(idx) = bytes[..next_len]
+            .iter()
+            .rposition(|b| b.is_ascii_whitespace())
+        {
+            // println!("  + Found last whitespace, using idx={idx}");
+            idx + 1
+        } else if let Some(idx) = bytes[..next_len]
+            .iter()
+            .rposition(|b| !b.is_ascii_alphanumeric())
+        {
+            // println!(
+            //     "  + Found NO whitespace, using ugly letter ({:?}) at idx={idx}",
+            //     bytes[idx] as char
+            // );
+            idx + 1
         } else {
-            // We've found a full line but haven't found a space?
-            // Hard chop to make it fit. Sorry.
-            line = &bytes[..chars_per_line];
+            // println!("  + Found nothing worth breaking at, forcing break at {next_len}");
+            next_len
+        };
+        // println!(
+        //     "  + Breaking on {:?}",
+        //     bytes.get(break_idx).map(|&b| b as char)
+        // );
 
-            // Note: We DON'T want to exclude the character where we are, so no +1 like above.
-            bytes = &bytes[chars_per_line..];
-            i -= chars_per_line;
-        }
+        let line = unsafe { core::str::from_utf8_unchecked(&bytes[..break_idx]) };
+        let line = line.trim_end();
 
-        i += 1;
+        bytes = &bytes[break_idx..];
 
-        let line = unsafe { core::str::from_utf8_unchecked(line) };
-        // Don't waste anyone's time
-        if line.is_empty() || line.trim().is_empty() {
+        if line.trim().is_empty() {
+            // empty line? SKIP
             continue;
         }
 
-        callback(line);
+        for part in line.split("\n") {
+            callback(part);
+        }
     }
 
-    i = 0;
-    // Skip the rest of the spaces here
-    while bytes.get(i) == Some(&b' ') {
-        i += 1;
-    }
-
-    let line = unsafe { core::str::from_utf8_unchecked(&bytes[i..]) };
-    // Don't waste anyone's time
-    if line.is_empty() || line.trim().is_empty() {
-        return;
-    }
-
-    callback(line);
+    // println!("  + bytes.len()={}", bytes.len());
 }
 
 #[cfg(test)]
@@ -109,14 +104,33 @@ mod test {
         "aaaaaaa",
         "aaaaaa",
     ])]
-    #[timeout(Duration::from_millis(750))]
+    #[case::psuedo_debug_fmt(make_sys_info(), 24, [
+        "System Info",
+        "  chmnfct  = 0xffff",
+        "  chpart   = 0xffff",
+        "  chrev    = 0xff",
+        "  fpga     = true",
+        "  asic     = false",
+        "  hwgitref = 0xffffffff",
+        "........................",
+    ])]
+    #[timeout(Duration::from_millis(10))]
     fn check_chunk_lines(
-        #[case] text: &str,
+        #[case] text: impl AsRef<str>,
         #[case] len: usize,
         #[case] expected: impl IntoIterator<Item = &'static str> + 'static,
     ) {
-        println!("Truncating to len={len}");
+        let text = text.as_ref();
+
+        println!("Trunc to len={len}");
+        println!("text     len={}", text.len());
+        println!();
+        println!("{text:}");
+        println!();
         let expected: Vec<&str> = expected.into_iter().collect();
+        for e in &expected {
+            assert!(e.len() <= len, "Requesting truncating to {len} chars, but \"expected\" value has line {e:?}, which is {} long!", e.len());
+        }
         let mut actual = vec![];
 
         chunk_lines(text, len, |line| {
@@ -124,5 +138,28 @@ mod test {
         });
 
         assert_eq!(expected, actual);
+    }
+
+    fn make_sys_info() -> String {
+        let chip_id_manufacturer = u16::MAX;
+        let chip_id_part = u16::MAX;
+        let chip_id_revision = u8::MAX;
+
+        let platform_fpga: bool = true;
+        let platform_asic: bool = false;
+
+        let gitref_rp2040_spec = u32::MAX;
+
+        format!(
+            r#"System Info
+  chmnfct  = 0x{chip_id_manufacturer:x}
+  chpart   = 0x{chip_id_part:x}
+  chrev    = 0x{chip_id_revision:x}
+  fpga     = {platform_fpga}
+  asic     = {platform_asic}
+  hwgitref = 0x{gitref_rp2040_spec:x}
+........................
+    "#
+        )
     }
 }
