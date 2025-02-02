@@ -210,10 +210,10 @@ impl Scene for BitflipperScene {
             .draw_styled(&style_white_border, display);
 
             let line = alloc::format!(
-                "({dx},{dy}), {slopes}",
+                "({dx}, {dy}); cy={steps}",
                 dx = self.dir_x.abs(),
                 dy = self.dir_y.abs(),
-                slopes = self.slopes.len()
+                steps = self.cycle_count,
             );
             let text = Text::new(
                 &line,
