@@ -232,7 +232,14 @@ fn entry() -> ! {
         display.clear_unset();
     }
 
-    let mut rng = SmallRng::from_seed(core::array::from_fn(|_| 17));
+    // Use the lower 32-bits of the timer to seed our RNG.
+    // These count in usec, so ignoring the higher bits causes us to
+    // "repeat" seeds after someone waits 71 minutes on the title screen.
+    // Seems fine.
+    let seed_bytes = timer.get_counter_low().to_le_bytes();
+    let seed = core::array::from_fn(|i| seed_bytes[i % 4]);
+    let mut rng = SmallRng::from_seed(seed);
+
     let mut ctx = Context {
         rng: &mut rng,
         btn_a: false,
