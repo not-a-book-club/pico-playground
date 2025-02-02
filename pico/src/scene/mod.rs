@@ -11,6 +11,10 @@ pub use conway::*;
 mod bitflipper;
 pub use bitflipper::*;
 
+/// Debugging scene that displays whatever text we care about
+mod debug_text;
+pub use debug_text::*;
+
 /// A trait that describes what actions a Scene might need to do in response to user input
 ///
 /// - When a scene is first switched into, its `init()` method is called to setup any one-time work.

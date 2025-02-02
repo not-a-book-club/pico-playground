@@ -19,7 +19,6 @@ use embedded_graphics::primitives::*;
 use embedded_graphics::text::renderer::CharacterStyle;
 use embedded_graphics::text::Text;
 use embedded_hal::digital::{InputPin, OutputPin};
-use embedded_hal::spi::SpiDevice;
 use hal::fugit::*;
 use hal::prelude::*;
 use rp_pico::hal;
@@ -32,161 +31,6 @@ use rand::{rngs::SmallRng, SeedableRng};
 
 use pico::peripherals::{SH1107Display, SH1107Driver};
 use pico::scene::*;
-
-/// "App" entry point, after initializing all of our clocks, pins, and friends
-fn main<Device, DataCmdPin>(
-    delay: &mut Delay,
-    display: &mut SH1107Display<Device, DataCmdPin>,
-    btn_a: &mut impl InputPin,
-    btn_b: &mut impl InputPin,
-    led: &mut impl OutputPin,
-    // Add more pins etc as needed
-) -> Result<(), ()>
-where
-    Device: SpiDevice,
-    DataCmdPin: OutputPin,
-{
-    // See if we left any interesting panic info in RAM
-    if let Some(mut msg) = panic_persist::get_panic_message_utf8() {
-        display.clear_unset();
-        display.driver().inverse_on();
-
-        if msg.starts_with("panicked at src/") {
-            msg = &msg[16..];
-        }
-
-        // Panic info
-        {
-            // Chunk the text to fit our display.
-            let mut y = 6;
-            pico::chunk_lines(msg, 30, |line: &str| {
-                let text = Text::new(
-                    line,
-                    Point::new(5, y),
-                    MonoTextStyle::new(&ascii::FONT_5X8, BinaryColor::On),
-                );
-                let _ = text.draw(display);
-                y += 8;
-            });
-        }
-
-        display.flush();
-
-        // Wait for input and then reset to USB mode
-        {
-            for i in 0.. {
-                let a = btn_a.is_low().unwrap_or(true);
-                let b = btn_b.is_low().unwrap_or(true);
-                if a || b {
-                    break;
-                }
-
-                if i % 2 == 0 {
-                    let _ = led.set_high();
-                } else {
-                    let _ = led.set_low();
-                }
-                delay.delay_ms(100);
-            }
-
-            hal::rom_data::reset_to_usb_boot(0, 0);
-        }
-    }
-
-    // Show a pretty title screen, and wait on it until user input
-    {
-        let width = display.width() as i32;
-        let height = display.height() as i32;
-
-        // Fullscreen white-border
-        let style_white_border = PrimitiveStyleBuilder::new()
-            .stroke_width(1)
-            .stroke_color(BinaryColor::On)
-            .build();
-        let r = 4;
-        let screen_border = RoundedRectangle::with_equal_corners(
-            Rectangle::new(Point::new(0, 0), Size::new(width as u32, height as u32)),
-            Size::new(r, r),
-        );
-        let _ = screen_border.draw_styled(&style_white_border, display);
-
-        // Draw "bitflipper", stylized
-        {
-            let mut bit_style = MonoTextStyle::new(&ascii::FONT_6X13_BOLD, BinaryColor::Off);
-            bit_style.set_background_color(Some(BinaryColor::On));
-            let bit = Text::new("BIT", Point::new(38, 19), bit_style);
-            let _ = bit.draw(display);
-
-            let flipper_style = MonoTextStyle::new(&ascii::FONT_6X13_ITALIC, BinaryColor::On);
-            let flipper = Text::new("flipper", Point::new(58, 22), flipper_style);
-            let _ = flipper.draw(display);
-        }
-
-        // Draw some lines below everything
-        for i in 0..3 {
-            let xs = width * 1 / 8 + 3 * (3 - i);
-            let xe = width * 7 / 8 - 3 * (3 - i);
-            let y = 3 * height / 4 + (i - 1) * 5 - 16;
-            let line0 = Line::new(Point::new(xs, y), Point::new(xe, y));
-            let _ = line0.draw_styled(&style_white_border, display);
-        }
-
-        // Instruct the obediant
-        let anykey = Text::new(
-            "PRESS ANY KEY",
-            Point::new(32, 3 * height / 4 + 4),
-            MonoTextStyle::new(&ascii::FONT_5X8, BinaryColor::On),
-        );
-        let _ = anykey.draw(display);
-
-        display.flush();
-
-        // Wait until a button press
-        for i in 0.. {
-            let a = btn_a.is_low().unwrap();
-            let b = btn_b.is_low().unwrap();
-            if a || b {
-                break;
-            }
-
-            // Toggle the LED every ~500ms while waiting for input
-            if i % 10 == 0 {
-                let _ = led.set_high();
-            } else if i % 10 == 5 {
-                let _ = led.set_low();
-            }
-
-            delay.delay_ms(100);
-        }
-
-        display.clear_unset();
-    }
-
-    let mut rng = SmallRng::from_seed(core::array::from_fn(|_| 17));
-    let mut bitflipper_scene = pico::scene::BitflipperScene::new(display);
-    let mut ctx = Context {
-        rng: &mut rng,
-        btn_a: false,
-        btn_b: false,
-        delay,
-    };
-
-    bitflipper_scene.init(&mut ctx);
-
-    loop {
-        ctx.btn_a = btn_a.is_low().unwrap();
-        ctx.btn_b = btn_b.is_low().unwrap();
-
-        if ctx.btn_a && ctx.btn_b {
-            panic!("Ha-ah! Panic handling works! {}:{}", file!(), line!());
-        }
-
-        let needs_flush = bitflipper_scene.update(&mut ctx, display);
-        if needs_flush {
-            display.flush();
-        }
-    }
-}
 
 #[global_allocator]
 static HEAP: Heap = Heap::empty();
@@ -272,16 +116,171 @@ fn entry() -> ! {
     let mut display = SH1107Display::new(driver);
     // TODO: Maybe we could dim the display slowly so the user doesn't notice and save battery?
     // display.driver().set_contrast(0);
+    // See if we left any interesting panic info in RAM
+    if let Some(mut msg) = panic_persist::get_panic_message_utf8() {
+        display.clear_unset();
+        display.driver().inverse_on();
 
-    match main(&mut delay, &mut display, &mut btn_a, &mut btn_b, &mut led) {
-        Ok(()) => {
-            // iunno
+        if msg.starts_with("panicked at src/") {
+            msg = &msg[16..];
         }
-        Err(_err) => {
-            // ohhhhh nooooo
+
+        // Panic info
+        {
+            // Chunk the text to fit our display.
+            let mut y = 6;
+            pico::chunk_lines(msg, 30, |line: &str| {
+                let text = Text::new(
+                    line,
+                    Point::new(5, y),
+                    MonoTextStyle::new(&ascii::FONT_5X8, BinaryColor::On),
+                );
+                let _ = text.draw(&mut display);
+                y += 8;
+            });
+        }
+
+        display.flush();
+
+        // Wait for input and then reset to USB mode
+        {
+            for i in 0.. {
+                let a = btn_a.is_low().unwrap_or(true);
+                let b = btn_b.is_low().unwrap_or(true);
+                if a || b {
+                    break;
+                }
+
+                if i % 2 == 0 {
+                    let _ = led.set_high();
+                } else {
+                    let _ = led.set_low();
+                }
+                delay.delay_ms(100);
+            }
+
+            hal::rom_data::reset_to_usb_boot(0, 0);
         }
     }
 
-    hal::rom_data::reset_to_usb_boot(0, 0);
-    unreachable!()
+    // Show a pretty title screen, and wait on it until user input
+    {
+        let width = display.width() as i32;
+        let height = display.height() as i32;
+
+        // Fullscreen white-border
+        let style_white_border = PrimitiveStyleBuilder::new()
+            .stroke_width(1)
+            .stroke_color(BinaryColor::On)
+            .build();
+        let r = 4;
+        let screen_border = RoundedRectangle::with_equal_corners(
+            Rectangle::new(Point::new(0, 0), Size::new(width as u32, height as u32)),
+            Size::new(r, r),
+        );
+        let _ = screen_border.draw_styled(&style_white_border, &mut display);
+
+        // Draw "bitflipper", stylized
+        {
+            let mut bit_style = MonoTextStyle::new(&ascii::FONT_6X13_BOLD, BinaryColor::Off);
+            bit_style.set_background_color(Some(BinaryColor::On));
+            let bit = Text::new("BIT", Point::new(38, 19), bit_style);
+            let _ = bit.draw(&mut display);
+
+            let flipper_style = MonoTextStyle::new(&ascii::FONT_6X13_ITALIC, BinaryColor::On);
+            let flipper = Text::new("flipper", Point::new(58, 22), flipper_style);
+            let _ = flipper.draw(&mut display);
+        }
+
+        // Draw some lines below everything
+        for i in 0..3 {
+            let xs = width * 1 / 8 + 3 * (3 - i);
+            let xe = width * 7 / 8 - 3 * (3 - i);
+            let y = 3 * height / 4 + (i - 1) * 5 - 16;
+            let line0 = Line::new(Point::new(xs, y), Point::new(xe, y));
+            let _ = line0.draw_styled(&style_white_border, &mut display);
+        }
+
+        // Instruct the obediant
+        let anykey = Text::new(
+            "PRESS ANY KEY",
+            Point::new(32, 3 * height / 4 + 4),
+            MonoTextStyle::new(&ascii::FONT_5X8, BinaryColor::On),
+        );
+        let _ = anykey.draw(&mut display);
+
+        display.flush();
+
+        // Wait until a button press
+        for i in 0.. {
+            let a = btn_a.is_low().unwrap();
+            let b = btn_b.is_low().unwrap();
+            if a || b {
+                break;
+            }
+
+            // Toggle the LED every ~500ms while waiting for input
+            if i % 10 == 0 {
+                let _ = led.set_high();
+            } else if i % 10 == 5 {
+                let _ = led.set_low();
+            }
+
+            delay.delay_ms(100);
+        }
+
+        display.clear_unset();
+    }
+
+    let mut rng = SmallRng::from_seed(core::array::from_fn(|_| 17));
+    let mut ctx = Context {
+        rng: &mut rng,
+        btn_a: false,
+        btn_b: false,
+        delay: &mut delay,
+    };
+
+    let mut scene = pico::scene::BitflipperScene::new(&display);
+
+    // Use this to debug some text
+    if false {
+        let mut scene = pico::scene::DebugTextScene::new(&display);
+        scene.init(&mut ctx);
+
+        let chip_id = pac.SYSINFO.chip_id().read();
+        let chip_id_manufacturer: u16 = chip_id.manufacturer().bits();
+        let chip_id_part: u16 = chip_id.part().bits();
+        let chip_id_revision: u8 = chip_id.revision().bits();
+
+        let gitref_rp2040_spec: u32 = pac.SYSINFO.gitref_rp2040().read().bits();
+
+        let nmi_p0 = pac.SYSCFG.proc0_nmi_mask().read().bits();
+        let nmi_p1 = pac.SYSCFG.proc1_nmi_mask().read().bits();
+
+        scene.text = alloc::format!(
+            r#"System Info
+  chmnfct  = 0x{chip_id_manufacturer:x}
+  chpart   = 0x{chip_id_part:x}
+  chrev    = 0x{chip_id_revision:x}
+  hwgitref = 0x{gitref_rp2040_spec:x}
+SYSCFG
+  nmi_p0   = 0b{nmi_p0:b}
+  nmi_p1   = 0b{nmi_p1:b}
+"#
+        );
+    }
+
+    loop {
+        ctx.btn_a = btn_a.is_low().unwrap();
+        ctx.btn_b = btn_b.is_low().unwrap();
+
+        if ctx.btn_a && ctx.btn_b {
+            panic!("Ha-ah! Panic handling works! {}:{}", file!(), line!());
+        }
+
+        let needs_flush = scene.update(&mut ctx, &mut display);
+        if needs_flush {
+            display.flush();
+        }
+    }
 }
