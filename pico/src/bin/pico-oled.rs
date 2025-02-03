@@ -29,7 +29,7 @@ use defmt::{debug, error, info, warn};
 
 use rand::{rngs::SmallRng, SeedableRng};
 
-use pico::peripherals::{SH1107Display, SH1107Driver};
+use pico::peripherals::{SH1107Display, SH1107Driver, INA219};
 use pico::scene::*;
 
 #[global_allocator]
@@ -232,6 +232,25 @@ fn entry() -> ! {
         display.clear_unset();
     }
 
+    let sda: hal::gpio::Pin<_, hal::gpio::FunctionI2c, hal::gpio::PullUp> = pins
+        .gpio6
+        .into_function::<hal::gpio::FunctionI2C>()
+        .into_pull_type();
+    let scl: hal::gpio::Pin<_, hal::gpio::FunctionI2c, hal::gpio::PullUp> = pins
+        .gpio7
+        .into_function::<hal::gpio::FunctionI2C>()
+        .into_pull_type();
+    let i2c = hal::I2C::i2c1(
+        pac.I2C1,
+        sda,
+        scl,
+        400_u32.kHz(),
+        &mut pac.RESETS,
+        rp_pico::XOSC_CRYSTAL_FREQ.Hz(),
+    );
+    #[allow(unused)]
+    let mut battery = INA219::new(i2c);
+
     // Use the lower 32-bits of the timer to seed our RNG.
     // These count in usec, so ignoring the higher bits causes us to
     // "repeat" seeds after someone waits 71 minutes on the title screen.
@@ -247,35 +266,9 @@ fn entry() -> ! {
         delay: &mut delay,
     };
 
+    // let mut scene = pico::scene::DebugTextScene::new(&display);
     let mut scene = pico::scene::BitflipperScene::new(&display);
-
-    // Use this to debug some text
-    if false {
-        let mut scene = pico::scene::DebugTextScene::new(&display);
-        scene.init(&mut ctx);
-
-        let chip_id = pac.SYSINFO.chip_id().read();
-        let chip_id_manufacturer: u16 = chip_id.manufacturer().bits();
-        let chip_id_part: u16 = chip_id.part().bits();
-        let chip_id_revision: u8 = chip_id.revision().bits();
-
-        let gitref_rp2040_spec: u32 = pac.SYSINFO.gitref_rp2040().read().bits();
-
-        let nmi_p0 = pac.SYSCFG.proc0_nmi_mask().read().bits();
-        let nmi_p1 = pac.SYSCFG.proc1_nmi_mask().read().bits();
-
-        scene.text = alloc::format!(
-            r#"System Info
-  chmnfct  = 0x{chip_id_manufacturer:x}
-  chpart   = 0x{chip_id_part:x}
-  chrev    = 0x{chip_id_revision:x}
-  hwgitref = 0x{gitref_rp2040_spec:x}
-SYSCFG
-  nmi_p0   = 0b{nmi_p0:b}
-  nmi_p1   = 0b{nmi_p1:b}
-"#
-        );
-    }
+    scene.init(&mut ctx);
 
     loop {
         ctx.btn_a = btn_a.is_low().unwrap();
@@ -284,6 +277,12 @@ SYSCFG
         if ctx.btn_a && ctx.btn_b {
             panic!("Ha-ah! Panic handling works! {}:{}", file!(), line!());
         }
+
+        // scene.text = alloc::format!(
+        //     "mA: {m_amps}\nbus V: {bus_v}",
+        //     m_amps = battery.current_milliamps(),
+        //     bus_v = battery.bus_voltage(),
+        // );
 
         let needs_flush = scene.update(&mut ctx, &mut display);
         if needs_flush {

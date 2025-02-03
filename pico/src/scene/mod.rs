@@ -24,6 +24,7 @@ pub use debug_text::*;
 /// Scene objects are not deallocated between scene switches, but can choose to reset state in `init()` and `deinit()`.
 pub trait Scene {
     /// Called before a scene has started updating
+    // TODO: Should probably call this new() and give it a Display+RNG instead
     fn init(&mut self, ctx: &mut Context<'_>) {
         let _ = ctx;
     }
