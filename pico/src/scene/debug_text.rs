@@ -31,6 +31,8 @@ impl Scene for DebugTextScene {
         DataCmdPin: embedded_hal::digital::OutputPin,
         Device: embedded_hal::spi::SpiDevice,
     {
+        self.frames_since_input = self.frames_since_input.saturating_add(1);
+
         let _btn_a = (self.frames_since_input > 20) && ctx.btn_a;
         let _btn_b = (self.frames_since_input > 20) && ctx.btn_b;
 

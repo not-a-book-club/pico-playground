@@ -17,6 +17,10 @@ pub use bitflipper::*;
 mod debug_text;
 pub use debug_text::*;
 
+/// About scene that displays information about who made this and the build that's running
+mod credits;
+pub use credits::*;
+
 /// A trait that describes what actions a Scene might need to do in response to user input
 ///
 /// - When a scene is first switched into, its `init()` method is called to setup any one-time work.

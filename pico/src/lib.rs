@@ -122,6 +122,7 @@ mod test {
         "  hwgitref = 0xffffffff",
         "........................",
     ])]
+    #[case::preserve_newlines("abcd\n\n\ndefg", 100, ["abcd", "",  "","defg"])]
     // Check some cases where we SHOULD NOT line break
     #[case::short_alpha("abcd", 100, ["abcd"])]
     #[case::short_alpha_white("abcd defg", 100, ["abcd defg"])]

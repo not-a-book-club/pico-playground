@@ -169,6 +169,7 @@ fn main() {
     }
 
     // Show a pretty title screen, and wait on it until user input
+    let mut load_main_scene = true;
     {
         let width = display.width() as i32;
         let height = display.height() as i32;
@@ -218,9 +219,12 @@ fn main() {
 
         // Wait until a button press
         for i in 0.. {
-            let a = btn_a.is_low().unwrap();
-            let b = btn_b.is_low().unwrap();
+            let a: bool = btn_a.is_low().unwrap();
+            let b: bool = btn_b.is_low().unwrap();
             if a || b {
+                // If EITHER A or B are pressed, load the main scene.
+                // Otherwise, load credits!
+                load_main_scene = a;
                 break;
             }
 
@@ -271,27 +275,44 @@ fn main() {
         delay: &mut delay,
     };
 
-    // let mut scene = pico::scene::DebugTextScene::new();
-    let mut scene = pico::scene::BitflipperScene::new(&display);
-    scene.init(&mut ctx);
+    if load_main_scene {
+        // let mut scene = pico::scene::DebugTextScene::new();
+        let mut scene = pico::scene::BitflipperScene::new(&display);
+        scene.init(&mut ctx);
 
-    loop {
-        ctx.btn_a = btn_a.is_low().unwrap();
-        ctx.btn_b = btn_b.is_low().unwrap();
+        loop {
+            ctx.btn_a = btn_a.is_low().unwrap();
+            ctx.btn_b = btn_b.is_low().unwrap();
 
-        if ctx.btn_a && ctx.btn_b {
-            panic!("Ha-ah! Panic handling works! {}:{}", file!(), line!());
+            if ctx.btn_a && ctx.btn_b {
+                panic!("Ha-ah! Panic handling works! {}:{}", file!(), line!());
+            }
+
+            // scene.text = alloc::format!(
+            //     "mA: {m_amps}\nbus V: {bus_v}",
+            //     m_amps = battery.current_milliamps(),
+            //     bus_v = battery.bus_voltage(),
+            // );
+
+            if scene.update(&mut ctx, &mut display) {
+                display.flush();
+            }
         }
+    } else {
+        let mut scene = pico::scene::CreditsScene::new();
+        scene.init(&mut ctx);
 
-        // scene.text = alloc::format!(
-        //     "mA: {m_amps}\nbus V: {bus_v}",
-        //     m_amps = battery.current_milliamps(),
-        //     bus_v = battery.bus_voltage(),
-        // );
+        loop {
+            ctx.btn_a = btn_a.is_low().unwrap();
+            ctx.btn_b = btn_b.is_low().unwrap();
 
-        let needs_flush = scene.update(&mut ctx, &mut display);
-        if needs_flush {
-            display.flush();
+            if ctx.btn_a && ctx.btn_b {
+                hal::rom_data::reset_to_usb_boot(0, 0);
+            }
+
+            if scene.update(&mut ctx, &mut display) {
+                display.flush();
+            }
         }
     }
 }
