@@ -37,6 +37,11 @@ static HEAP: Heap = Heap::empty();
 
 #[cortex_m_rt::entry]
 fn entry() -> ! {
+    main();
+    unreachable!();
+}
+
+fn main() {
     // === Setup embedded things ==========================================
     // Init Heap
     {
