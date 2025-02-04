@@ -271,7 +271,7 @@ fn main() {
         delay: &mut delay,
     };
 
-    // let mut scene = pico::scene::DebugTextScene::new(&display);
+    // let mut scene = pico::scene::DebugTextScene::new();
     let mut scene = pico::scene::BitflipperScene::new(&display);
     scene.init(&mut ctx);
 

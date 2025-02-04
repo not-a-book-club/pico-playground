@@ -9,21 +9,15 @@ use crate::peripherals::SH1107Display;
 
 use alloc::string::String;
 
+#[derive(Clone, Default)]
 pub struct DebugTextScene {
     pub text: String,
     frames_since_input: u32,
 }
 
 impl DebugTextScene {
-    pub fn new<Device, DataCmdPin>(_display: &SH1107Display<Device, DataCmdPin>) -> Self
-    where
-        DataCmdPin: embedded_hal::digital::OutputPin,
-        Device: embedded_hal::spi::SpiDevice,
-    {
-        Self {
-            frames_since_input: 0,
-            text: String::new(),
-        }
+    pub fn new() -> Self {
+        Self::default()
     }
 }
 

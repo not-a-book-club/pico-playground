@@ -5,9 +5,11 @@ use rand::rngs::SmallRng;
 
 use crate::peripherals::SH1107Display;
 
+/// A test scene that runs Conways Game of Life
 mod conway;
 pub use conway::*;
 
+/// The main attraction: a scene that displays a Bitflipper simulation
 mod bitflipper;
 pub use bitflipper::*;
 

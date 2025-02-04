@@ -10,8 +10,6 @@ use super::{Context, Scene};
 use crate::peripherals::SH1107Display;
 
 pub struct BitflipperScene {
-    view_width: i32,
-    view_height: i32,
     step_index: i32,
     t: i32,
     x: i32,
@@ -42,8 +40,6 @@ impl BitflipperScene {
         let bits = simulations::BitGrid::new(view_width as usize, view_height as usize);
 
         Self {
-            view_height,
-            view_width,
             bits,
 
             step_index: 6, // vroom vroom
@@ -95,11 +91,11 @@ impl BitflipperScene {
             self.flip_bit()
         }
 
-        if self.x == 0 || self.x == self.view_width * self.dir_y.abs() {
+        if self.x == 0 || self.x == self.bits.width() as i32 * self.dir_y.abs() {
             self.dir_x *= -1;
         }
 
-        if self.y == 0 || self.y == self.view_height * self.dir_x.abs() {
+        if self.y == 0 || self.y == self.bits.height() as i32 * self.dir_x.abs() {
             self.dir_y *= -1;
         }
     }
@@ -201,8 +197,8 @@ impl Scene for BitflipperScene {
                 Rectangle::new(
                     Point::new(0, base_y),
                     Size::new(
-                        self.view_width as u32,
-                        self.view_height as u32 - base_y as u32,
+                        display.width() as u32,
+                        display.height() as u32 - base_y as u32,
                     ),
                 ),
                 Size::new(5, 5),
