@@ -118,10 +118,10 @@ impl BitflipperScene {
     }
 
     fn set_slope_for_cycle_count(&mut self, ctx: &mut Context<'_>) {
-        let dir_x_idx: usize = if self.cycle_count >= 0 {
+        let dir_x_idx: usize = if self.cycle_count < CYCLE_SIZE / 2 {
             (self.cycle_count * 4) as usize
         } else {
-            (self.cycle_count * -4 - 2) as usize
+            ((CYCLE_SIZE - self.cycle_count) * 4 - 2) as usize
         };
 
         self.fill_slope_vec_until(dir_x_idx + 1, ctx);
