@@ -19,7 +19,7 @@ use embedded_graphics::primitives::*;
 use embedded_graphics::text::renderer::CharacterStyle;
 use embedded_graphics::text::Text;
 use embedded_hal::digital::{InputPin, OutputPin};
-use hal::fugit::*;
+use fugit::*;
 use hal::prelude::*;
 use rp_pico::hal;
 
@@ -272,6 +272,7 @@ fn main() {
         rng: &mut rng,
         btn_a: false,
         btn_b: false,
+        time: timer.get_counter().ticks(),
     };
 
     if load_main_scene {
@@ -282,15 +283,17 @@ fn main() {
         loop {
             ctx.btn_a = btn_a.is_low().unwrap();
             ctx.btn_b = btn_b.is_low().unwrap();
+            ctx.time = timer.get_counter().ticks();
 
             if ctx.btn_a && ctx.btn_b {
                 panic!("Ha-ah! Panic handling works! {}:{}", file!(), line!());
             }
 
             // scene.text = alloc::format!(
-            //     "mA: {m_amps}\nbus V: {bus_v}",
+            //     "mA: {m_amps}\nbus V: {bus_v}\ntime={time}",
             //     m_amps = battery.current_milliamps(),
             //     bus_v = battery.bus_voltage(),
+            //     time = ctx.time,
             // );
 
             if scene.update(&mut ctx, &mut display) {
@@ -304,6 +307,7 @@ fn main() {
         loop {
             ctx.btn_a = btn_a.is_low().unwrap();
             ctx.btn_b = btn_b.is_low().unwrap();
+            ctx.time = timer.get_counter().ticks();
 
             if ctx.btn_a && ctx.btn_b {
                 hal::rom_data::reset_to_usb_boot(0, 0);

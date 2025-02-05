@@ -29,6 +29,7 @@ embedded-alloc = "0.6"
 embedded-graphics = "0.8"
 embedded-hal = "1"
 embedded-hal-bus = "0.3"
+fugit = "0.3"
 panic-persist = { version = "0.3", features = ["utf8"] }
 panic-probe = "0.3"
 
@@ -40,6 +41,7 @@ rand = { version = "0.8", features = ["small_rng"], default-features = false }
 bytemuck = { version = "1.21", features = ["derive", "min_const_generics"] }
 proc-bitfield = "0.5"
 indoc = "2"
+
 
 [dev-dependencies]
 pretty_assertions = "1.4"

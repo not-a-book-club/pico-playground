@@ -20,6 +20,7 @@ pub struct BitflipperScene {
     cycle_count: i32,
     frames_since_input: i32,
     slopes: Vec<i32>,
+    last_cycle_change_time_usec: u64,
 }
 
 #[rustfmt::skip]
@@ -53,6 +54,7 @@ impl BitflipperScene {
             cycle_count: 0,
             frames_since_input: 0,
             slopes: vec![],
+            last_cycle_change_time_usec: 0,
         }
     }
 
@@ -176,6 +178,7 @@ impl Scene for BitflipperScene {
 
         for _ in 0..pixel_delta.abs() {
             if self.x == 0 && self.y == 0 {
+                self.last_cycle_change_time_usec = ctx.time;
                 self.cycle_count =
                     Self::positive_modulo(self.cycle_count + self.step_index.signum(), CYCLE_SIZE);
 
@@ -188,7 +191,11 @@ impl Scene for BitflipperScene {
         display.copy_image(&self.bits);
 
         // Draw some nums on the bottom bar
-        {
+        if self.last_cycle_change_time_usec + 2_000_000 >= ctx.time {
+            let dx = self.dir_x.abs();
+            let dy = self.dir_y.abs();
+            let line = alloc::format!("({dx}, {dy})");
+
             let base_y = 48;
             let style_white_border = PrimitiveStyleBuilder::new()
                 .stroke_width(1)
@@ -208,17 +215,9 @@ impl Scene for BitflipperScene {
             )
             .draw_styled(&style_white_border, display);
 
-            let line = alloc::format!(
-                "({dx}, {dy}); cy={steps}",
-                dx = self.dir_x.abs(),
-                dy = self.dir_y.abs(),
-                steps = self.cycle_count,
-            );
-            let text = Text::new(
-                &line,
-                Point::new(4, base_y + 9),
-                MonoTextStyle::new(&ascii::FONT_5X8, BinaryColor::On),
-            );
+            // Make sure to draw the text ONTOP of the rectangle
+            let style = MonoTextStyle::new(&ascii::FONT_5X8, BinaryColor::On);
+            let text = Text::new(&line, Point::new(4, base_y + 9), style);
             let _ = text.draw(display);
         }
 

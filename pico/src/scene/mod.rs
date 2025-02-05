@@ -62,4 +62,7 @@ pub struct Context<'a> {
 
     /// Whether the B button / Key0 is pressed or not
     pub btn_b: bool,
+
+    /// Time in microseconds so that scenes can wait
+    pub time: u64,
 }
