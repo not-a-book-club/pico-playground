@@ -150,6 +150,11 @@ impl Scene for BitflipperScene {
         let btn_a = (self.frames_since_input > 20) && ctx.btn_a;
         let btn_b = (self.frames_since_input > 20) && ctx.btn_b;
 
+        if btn_a || btn_b {
+            // When we tap a button, show the slopes dialog again. briefly.
+            self.last_cycle_change_time_usec = ctx.time;
+        }
+
         if btn_a && btn_b {
             self.frames_since_input = -1;
 
@@ -162,21 +167,11 @@ impl Scene for BitflipperScene {
             self.frames_since_input = -1;
             if self.step_index > 0 || self.step_index.abs() < STEP_NUMERATORS.len() as i32 {
                 self.step_index -= 1;
-
-                // When we first pause, show the slopes dialog again, briefly.
-                if self.step_index == 0 {
-                    self.last_cycle_change_time_usec = ctx.time;
-                }
             }
         } else if btn_b {
             self.frames_since_input = -1;
             if self.step_index < STEP_NUMERATORS.len() as i32 {
                 self.step_index += 1;
-
-                // When we first pause, show the slopes dialog again, briefly.
-                if self.step_index == 0 {
-                    self.last_cycle_change_time_usec = ctx.time;
-                }
             }
         }
 
