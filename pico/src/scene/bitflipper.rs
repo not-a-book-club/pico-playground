@@ -207,7 +207,7 @@ impl Scene for BitflipperScene {
                 Rectangle::new(
                     Point::new(0, base_y),
                     Size::new(
-                        display.width() as u32,
+                        5 + 5 * line.len() as u32,
                         display.height() as u32 - base_y as u32,
                     ),
                 ),
