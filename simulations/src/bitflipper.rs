@@ -124,6 +124,5 @@ impl BitFlipper {
         let pixel_delta = self.t / 10920;
         self.t -= pixel_delta * 10920;
         self.advance_by(pixel_delta);
-
     }
 }
