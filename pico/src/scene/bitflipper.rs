@@ -162,11 +162,21 @@ impl Scene for BitflipperScene {
             self.frames_since_input = -1;
             if self.step_index > 0 || self.step_index.abs() < STEP_NUMERATORS.len() as i32 {
                 self.step_index -= 1;
+
+                // When we first pause, show the slopes dialog again, briefly.
+                if self.step_index == 0 {
+                    self.last_cycle_change_time_usec = ctx.time;
+                }
             }
         } else if btn_b {
             self.frames_since_input = -1;
             if self.step_index < STEP_NUMERATORS.len() as i32 {
                 self.step_index += 1;
+
+                // When we first pause, show the slopes dialog again, briefly.
+                if self.step_index == 0 {
+                    self.last_cycle_change_time_usec = ctx.time;
+                }
             }
         }
 
