@@ -1,6 +1,5 @@
 //! WIP Trait to manage multiple scenes
 
-use cortex_m::delay::Delay;
 use rand::rngs::SmallRng;
 
 use crate::peripherals::SH1107Display;
@@ -63,7 +62,4 @@ pub struct Context<'a> {
 
     /// Whether the B button / Key0 is pressed or not
     pub btn_b: bool,
-
-    /// Allows Scenes to sleep in their update() calls
-    pub delay: &'a mut Delay,
 }

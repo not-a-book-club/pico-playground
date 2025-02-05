@@ -272,7 +272,6 @@ fn main() {
         rng: &mut rng,
         btn_a: false,
         btn_b: false,
-        delay: &mut delay,
     };
 
     if load_main_scene {
