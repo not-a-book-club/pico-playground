@@ -134,7 +134,7 @@ fn main() {
         {
             // Chunk the text to fit our display.
             let mut y = 6;
-            pico::chunk_lines(msg, 30, |line: &str| {
+            pico::chunk_lines(msg, 24, |line: &str| {
                 let text = Text::new(
                     line,
                     Point::new(5, y),
