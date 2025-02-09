@@ -81,10 +81,6 @@ impl BitGrid {
         let x = (x + self.width()) % self.width();
         let y = (y + self.height()) % self.height();
 
-        let dims = (self.width(), self.height());
-        assert!((0 <= x) && (x < self.width()), "({x},{y}) OOB, ({dims:?})",);
-        assert!((0 <= y) && (y < self.height()), "({x},{y}) OOB, ({dims:?})",);
-
         let idx = (x / 8) + y * ((self.width() + 7) / 8);
         let bit = x % 8;
 

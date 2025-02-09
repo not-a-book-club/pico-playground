@@ -378,6 +378,7 @@ where
     /// Writes a byte over the interface with DC set low
     ///
     /// Leaves DC set high after returning.
+    #[inline(never)]
     fn reg(&mut self, reg: u8) {
         self.dc.set_low().unwrap();
         let _ = self.dev.write(&[reg]);
@@ -388,6 +389,7 @@ where
     /// Writes a byte over the interface with DC set high
     ///
     /// Leaves DC set high after returning.
+    #[inline(never)]
     fn data(&mut self, byte: u8) {
         self.dc.set_high().unwrap();
         let _ = self.dev.write(&[byte]);
