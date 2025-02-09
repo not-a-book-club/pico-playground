@@ -18,7 +18,7 @@ pub const AOC_GOLD: Rgb565 = Rgb565::from_rgb888(0xff_ff_66);
 pub const OHNO_PINK: Rgb565 = Rgb565::new(0xF8_1F);
 
 /// Chunk lines for drawing on a small display
-//  TODO: Make it handle non-alpha characters too (and simpler)
+// TODO: Make this return an iterator instead of using a callback
 pub fn chunk_lines<'a>(text: &'a str, chars_per_line: usize, mut callback: impl FnMut(&'a str)) {
     let mut bytes: &[u8] = text.as_bytes();
 
