@@ -13,5 +13,5 @@ cargo test   --lib --target=aarch64-apple-darwin --quiet
 cargo build
 cargo build --release
 
-cargo size --bin pico-oled -- -A
-cargo size --bin pico-oled --release -- -A
+# cargo size --bin pico-oled -- -A
+# cargo size --bin pico-oled --release -- -A
