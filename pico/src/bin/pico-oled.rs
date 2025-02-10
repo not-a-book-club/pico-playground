@@ -290,7 +290,13 @@ fn main() {
             }
 
             // scene.text = alloc::format!(
-            //     "mA: {m_amps}\nbus V: {bus_v}\ntime={time}",
+            //     indoc::indoc!(
+            //         r#"
+            //         time:  {time}
+            //         mA:    {m_amps}
+            //         bus V: {bus_v}
+            //     "#
+            //     ),
             //     m_amps = battery.current_milliamps(),
             //     bus_v = battery.bus_voltage(),
             //     time = ctx.time,
