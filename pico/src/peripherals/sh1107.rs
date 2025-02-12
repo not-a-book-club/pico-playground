@@ -39,20 +39,22 @@ where
     /// The framebuffer is initialized to all `false` values.
     /// See [`SH1107Display::clear_set`] and [`SH1107Display::clear_unset`] for quick ways to clear the display.
     pub fn new(driver: SH1107Driver<Device, DataCmdPin>) -> Self {
+        let framebuffer = BitGrid::new(driver.width() as usize, driver.height() as usize);
+
         Self {
             driver,
-            framebuffer: BitGrid::new(WIDTH as usize, HEIGHT as usize),
+            framebuffer,
         }
     }
 
     /// The width in pixels of the display
     pub const fn width(&self) -> u16 {
-        WIDTH
+        self.driver.width()
     }
 
     /// The height in pixels of the display
     pub const fn height(&self) -> u16 {
-        HEIGHT
+        self.driver.height()
     }
 
     /// Returns whether the pixel at the given coordinate is set or unset.
@@ -120,8 +122,8 @@ where
     /// This writes the full state of the framebuffer to the display. After this method returns,
     /// the display should mimic the contents framebuffer.
     pub fn flush(&mut self) {
-        let width = WIDTH as i16;
-        let height = HEIGHT as i16;
+        let width = self.width() as i16;
+        let height = self.height() as i16;
 
         let bytes = self.framebuffer.as_bytes();
         self.driver.set_page_addr(0); // ???
@@ -168,8 +170,8 @@ where
         Rectangle {
             top_left: Point::new(0, 0),
             size: Size {
-                width: WIDTH as u32,
-                height: HEIGHT as u32,
+                width: self.width() as u32,
+                height: self.height() as u32,
             },
         }
     }
@@ -189,7 +191,7 @@ where
         I: IntoIterator<Item = Pixel<Self::Color>>,
     {
         for Pixel(Point { x, y }, c) in pixels.into_iter() {
-            if x >= 0 && y >= 0 && x < WIDTH as i32 && y < HEIGHT as i32 {
+            if x >= 0 && y >= 0 && x < self.width() as i32 && y < self.height() as i32 {
                 self.set(x as i16, y as i16, c.is_on());
             }
         }
@@ -236,10 +238,20 @@ where
         this
     }
 
+    /// The width in pixels of the display
+    pub const fn width(&self) -> u16 {
+        WIDTH
+    }
+
+    /// The height in pixels of the display
+    pub const fn height(&self) -> u16 {
+        HEIGHT
+    }
+
     /// Directly clears the display
     pub fn clear(&mut self) {
-        let width = WIDTH as u8;
-        let height = HEIGHT as u8;
+        let width = self.width() as u8;
+        let height = self.height() as u8;
         self.set_page_addr(0); // ???
         for y in 0..height {
             self.set_column_addr(y);
@@ -417,11 +429,9 @@ where
     }
 
     /// First-time initialization with reasonable defaults
+    ///
+    /// The init sequence here was ported from the sample code from the Waveshare site.
     fn init(&mut self, delay: &mut Delay) {
-        // TODO: All these reg() calls should be named commands on the driver
-        // TODO: We should better cite/document where this order comes from and what's necessary
-        //       It came from the sample code which is low-key sus fr fr.
-
         self.display_off();
 
         self.set_column_addr(0);
