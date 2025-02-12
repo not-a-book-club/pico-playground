@@ -38,24 +38,26 @@ where
         self.read(0x02, &mut voltage);
 
         // From the datasheet:
-        //     The Bus Voltage register bits are not right-aligned. In order to compute the value of
-        //     the Bus Voltage, Bus Voltage Register contents must be shifted right by three bits.
-        //     This shift puts the BD0 bit in the LSB position so that the contents can be multiplied
-        //     by the Bus Voltage LSB of 4-mV to compute the bus voltage measured by the device.
-        (voltage >> 3) / 25
+        // > The Bus Voltage register bits are not right-aligned. In order to compute the value of
+        // > the Bus Voltage, Bus Voltage Register contents must be shifted right by three bits.
+        // > This shift puts the BD0 bit in the LSB position so that the contents can be multiplied
+        // > by the Bus Voltage LSB of 4-mV to compute the bus voltage measured by the device.
+        (voltage >> 3) / 250
     }
 
     pub fn current_milliamps(&mut self) -> u16 {
         let mut m_amps = 0_u16;
 
-        // TODO: Cite docs on why we recalibate per read
-        // REG_CALIBRATION
-        self.write(0x05, self.cal_value);
+        // From the sample code
+        // > Sometimes a sharp load will reset the INA219, which will
+        // > reset the cal register, meaning CURRENT and POWER will
+        // > not be available ... avoid this by always setting a cal
+        // > value even if it's an unfortunate extra step
+        self.set_calibation();
 
         // REG_CURRENT
         self.read(0x04, &mut m_amps);
 
-        // TODO: Clarify scaling and units of this
         m_amps
     }
 
