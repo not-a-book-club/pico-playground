@@ -119,8 +119,7 @@ fn main() {
 
     let driver = SH1107Driver::new(spi_dev, dc, &mut rst, &mut delay);
     let mut display = SH1107Display::new(driver);
-    // TODO: Maybe we could dim the display slowly so the user doesn't notice and save battery?
-    // display.driver().set_contrast(0);
+
     // See if we left any interesting panic info in RAM
     if let Some(mut msg) = panic_persist::get_panic_message_utf8() {
         display.clear_unset();
