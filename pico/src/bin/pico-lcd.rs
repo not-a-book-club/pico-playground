@@ -133,11 +133,10 @@ fn main() -> ! {
     let timer = hal::Timer::new(pac.TIMER, &mut pac.RESETS, &clocks);
     let spi_dev = ExclusiveDevice::new(spi_bus, cs, timer).unwrap();
 
-    // TODO: Explain/cite the magic here
+    // TODO: This PWN work came from the sample code but I do not understand it.
+    // Set PWM
     let pwm_slices = hal::pwm::Slices::new(pac.PWM, &mut pac.RESETS);
     {
-        // Set PWM
-
         // slicenum from bl pin
         let mut pwm = pwm_slices.pwm6;
         pwm.set_ph_correct();
@@ -154,7 +153,6 @@ fn main() -> ! {
     let palettes = [
         // [Background, Foreground]
         [AOC_BLUE, AOC_GOLD],
-        // TODO: These pallets suck. Way too low contrast.
         [Rgb565::from_rgb888(0x1B081D), Rgb565::from_rgb888(0x830C8F)],
         [Rgb565::from_rgb888(0xFFFBFE), Rgb565::from_rgb888(0x7A7D7D)],
         [Rgb565::from_rgb888(0xD16014), Rgb565::from_rgb888(0x313715)],

@@ -40,7 +40,7 @@ where
     {
         let mut this = Self { dev, dc };
         this.reset(rst, delay);
-        this.init();
+        this.init(delay);
 
         if cfg!(debug_assertions) {
             this.clear_to_color(OHNO_PINK);
@@ -66,14 +66,7 @@ where
         self.cmd8(0x2C, image.as_bytes());
     }
 
-    // TODO: Fails dunno why
-    // pub fn set_pixel_2x2(&mut self, x: u16, y: u16, color: Rgb565) {
-    //     self.set_window(x, x + 1, y, y + 1);
-
-    //     // RAMWR - Memory Write
-    //     self.cmd8(0x2C, bytemuck::cast_slice(&[color, color, color, color]));
-    // }
-
+    /// Updates the entire display to the color `color`
     pub fn clear_to_color(&mut self, color: Rgb565) {
         self.set_window(0, WIDTH - 1, 0, HEIGHT - 1);
 
@@ -196,7 +189,6 @@ where
     fn read_madctl(&mut self) -> MadCtl {
         let mut buf = [0; 1];
 
-        // TODO: Refactor into a helper function like cmd8
         self.dc.set_low().unwrap();
         self.dev.write(&[0x0B]).unwrap();
 
@@ -312,7 +304,7 @@ where
         buf[1]
     }
 
-    fn init(&mut self) {
+    fn init(&mut self, delay: &mut Delay) {
         self.write_madctl(
             MadCtl::new()
                 .with_mv(1) //
@@ -370,12 +362,11 @@ where
         self.inversion_on();
 
         // SLPOUT (11h): Sleep Out
-        // TODO:
-        //      - It will be necessary to wait 5msec before sending any new commands to a display module
-        //          following this command to allow time for the supply voltages and clock circuits to stabilize.
-        //      - It will be necessary to wait 120msec after sending sleep out command
-        //          (when in sleep in mode) before sending an sleep in command.
+        // Note:
+        // > It will be necessary to wait 5msec before sending any new commands to a display module
+        // > following this command to allow time for the supply voltages and clock circuits to stabilize.
         self.cmd8(0x11, &[]);
+        delay.delay_ms(5);
 
         // Display On
         self.display_on();
@@ -385,7 +376,6 @@ where
     /// Only writes bytes if there are bytes to write, but always sets DC back to low.
     ///
     /// DC is always left high when this function exits!
-    // (TODO: Do interrupts here matter?)
     fn cmd8(&mut self, reg: u8, data: &[u8]) {
         self.dc.set_low().unwrap();
         self.dev.write(&[reg]).unwrap();
