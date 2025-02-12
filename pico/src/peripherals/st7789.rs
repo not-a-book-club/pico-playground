@@ -55,8 +55,11 @@ where
     }
 
     /// Updates the region of the display specified by the AABB quad (xs, ys) using the same region from `image`
-    // TODO: Is "region matching" like this useful? Maybe should be a dedicated image sent whole-sale
     pub fn present_range(&mut self, xs: Range<u16>, ys: Range<u16>, image: &Image<Rgb565>) {
+        // Make sure the image is actually sized right
+        assert_eq!(xs.len() as u16, image.width());
+        assert_eq!(ys.len() as u16, image.height());
+
         self.set_window(xs.start, xs.end - 1, ys.start, ys.end - 1);
 
         // RAMWR - Memory Write
