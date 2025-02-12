@@ -1,7 +1,5 @@
 use embedded_hal::i2c::I2c;
 
-const INA219_DEFAULT_ADDR: u8 = 0x43;
-
 pub struct INA219<I2C> {
     i2c: I2C,
     addr: u8,
@@ -13,6 +11,8 @@ where
     I2C: I2c,
 {
     pub fn new(i2c: I2C) -> Self {
+        const INA219_DEFAULT_ADDR: u8 = 0x43;
+
         Self::new_with_addr(i2c, INA219_DEFAULT_ADDR)
     }
 
@@ -22,7 +22,7 @@ where
             addr,
             cal_value: 4096,
         };
-        this.set_calibation();
+        this.set_configuration();
         this
     }
 
@@ -37,12 +37,15 @@ where
         // REG_BUSVOLTAGE
         self.read(0x02, &mut voltage);
 
-        // TODO: Clarify scaling and units of this
-        // (voltage >> 3) / 250
-        voltage
+        // From the datasheet:
+        //     The Bus Voltage register bits are not right-aligned. In order to compute the value of
+        //     the Bus Voltage, Bus Voltage Register contents must be shifted right by three bits.
+        //     This shift puts the BD0 bit in the LSB position so that the contents can be multiplied
+        //     by the Bus Voltage LSB of 4-mV to compute the bus voltage measured by the device.
+        (voltage >> 3) / 25
     }
 
-    pub fn current_milliamps(&mut self) -> i16 {
+    pub fn current_milliamps(&mut self) -> u16 {
         let mut m_amps = 0_u16;
 
         // TODO: Cite docs on why we recalibate per read
@@ -53,7 +56,22 @@ where
         self.read(0x04, &mut m_amps);
 
         // TODO: Clarify scaling and units of this
-        m_amps as i16
+        m_amps
+    }
+
+    pub fn shunt_voltage(&mut self) -> i16 {
+        let mut value = 0_u16;
+        self.read(0x01, &mut value) as i16
+    }
+
+    pub fn power(&mut self) -> i16 {
+        let mut value = 0_u16;
+        self.read(0x03, &mut value) as i16
+    }
+
+    pub fn current(&mut self) -> i16 {
+        let mut value = 0_u16;
+        self.read(0x04, &mut value) as i16
     }
 
     pub fn write(&mut self, reg: u8, value: u16) {
@@ -66,16 +84,23 @@ where
         let _ = self.i2c.write(self.addr, &bytes);
     }
 
-    pub fn read(&mut self, reg: u8, value: &mut u16) {
+    pub fn read(&mut self, reg: u8, value: &mut u16) -> u16 {
         let mut bytes = [0_u8; 2];
-
         let _ = self.i2c.write_read(self.addr, &[reg], &mut bytes);
 
+        // "All data bytes are transmitted most significant byte first"
         *value = u16::from_be_bytes(bytes);
+        *value
     }
 
-    #[allow(dead_code)]
     fn set_calibation(&mut self) {
+        // REG_CALIBRATION
+        self.write(0x05, self.cal_value);
+    }
+
+    fn set_configuration(&mut self) {
+        #![allow(dead_code)]
+
         // 0-16V Range
         const INA219_CONFIG_BVOLTAGERANGE_16V: u16 = 0x0000;
         // 0-32V Range
@@ -124,8 +149,7 @@ where
 
         const INA219_CONFIG_MODE_SANDBVOLT_CONTINUOUS: u16 = 7;
 
-        // REG_CALIBRATION
-        self.write(0x05, self.cal_value);
+        self.set_calibation();
 
         // Set Config register to take into account the settings above
         let config = INA219_CONFIG_BVOLTAGERANGE_32V

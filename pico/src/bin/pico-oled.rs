@@ -292,13 +292,16 @@ fn main() {
             // scene.text = alloc::format!(
             //     indoc::indoc!(
             //         r#"
-            //         time:  {time}
-            //         mA:    {m_amps}
-            //         bus V: {bus_v}
+            //         time:    {time}
+
+            //         shunt V: {shunt_voltage:12b}
+            //         power:   {power:12b}
+            //         current: {current:12b}
             //     "#
             //     ),
-            //     m_amps = battery.current_milliamps(),
-            //     bus_v = battery.bus_voltage(),
+            //     shunt_voltage = battery.shunt_voltage().abs(),
+            //     power = battery.power().abs(),
+            //     current = battery.current().abs(),
             //     time = ctx.time,
             // );
 
