@@ -29,7 +29,7 @@ use defmt::{debug, error, info, warn};
 
 use rand::{rngs::SmallRng, SeedableRng};
 
-use pico::peripherals::{SH1107Display, SH1107Driver, INA219};
+use pico::peripherals::*;
 use pico::scene::*;
 
 #[global_allocator]
@@ -92,7 +92,6 @@ fn main() {
         &mut pac.RESETS,
     );
 
-    // === OLED Specific setup ==========================================
     let dc = pins.gpio8.into_push_pull_output();
     let cs = pins.gpio9.into_push_pull_output();
     let mut rst = pins.gpio12.into_push_pull_output();
@@ -258,6 +257,10 @@ fn main() {
         &mut pac.RESETS,
         rp_pico::XOSC_CRYSTAL_FREQ.Hz(),
     );
+
+    let adc = hal::Adc::new(pac.ADC, &mut pac.RESETS);
+    #[allow(unused)]
+    let mut temp_sensor = Tmp36Sensor::new(adc, pins.gpio26);
     #[allow(unused)]
     let mut battery = INA219::new(i2c);
 
@@ -291,18 +294,22 @@ fn main() {
 
             // scene.text = alloc::format!(
             //     indoc::indoc!(
-            //         r#"
-            //         time:    {time}
-
-            //         shunt V: {shunt_voltage:12b}
-            //         power:   {power:12b}
-            //         current: {current:12b}
-            //     "#
+            //         r#"time:  {time}
+            //         Battery:
+            //             shunt V: {shunt_voltage}
+            //             power:   {power}
+            //             current: {current}
+            //         Pi Pico:
+            //             chip F:  {chip}
+            //             tmp36 F: {tmp36}
+            //         "#
             //     ),
             //     shunt_voltage = battery.shunt_voltage().abs(),
             //     power = battery.power().abs(),
             //     current = battery.current().abs(),
             //     time = ctx.time,
+            //     chip = temp_sensor.chip_fahrenheit(),
+            //     tmp36 = temp_sensor.read_fahrenheit(),
             // );
 
             if scene.update(&mut ctx, &mut display) {
