@@ -6,7 +6,7 @@ use embedded_graphics::text::Text;
 
 use crate::peripherals::SH1107Display;
 
-use super::{Context, Scene};
+use super::*;
 
 pub struct ConwayScene {
     sim: simulations::Life,
@@ -17,15 +17,20 @@ pub struct ConwayScene {
 }
 
 impl ConwayScene {
-    pub fn new<Device, DataCmdPin>(display: &SH1107Display<Device, DataCmdPin>) -> Self
+    pub fn new<Device, DataCmdPin>(
+        rng: &mut impl rand::Rng,
+        display: &SH1107Display<Device, DataCmdPin>,
+    ) -> Self
     where
         DataCmdPin: embedded_hal::digital::OutputPin,
         Device: embedded_hal::spi::SpiDevice,
     {
-        let sim = simulations::Life::new(display.width() as usize, display.height() as usize);
+        let mut sim = simulations::Life::new(display.width() as usize, display.height() as usize);
         let view_width = display.width() as u32;
         let view_height = display.height() as u32;
         let base_y = (display.height() as u32 - view_height) as i32;
+
+        sim.clear_random(rng);
 
         Self {
             sim,
@@ -37,10 +42,6 @@ impl ConwayScene {
 }
 
 impl Scene for ConwayScene {
-    fn init(&mut self, ctx: &mut Context<'_>) {
-        self.sim.clear_random(&mut ctx.rng);
-    }
-
     fn update<Device, DataCmdPin>(
         &mut self,
         ctx: &mut Context<'_>,

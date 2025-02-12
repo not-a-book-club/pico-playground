@@ -20,23 +20,27 @@ pub use debug_text::*;
 mod credits;
 pub use credits::*;
 
-/// A trait that describes what actions a Scene might need to do in response to user input
-///
-/// - When a scene is first switched into, its `init()` method is called to setup any one-time work.
-/// - After that, the `update()` method is called on repeat until the user switches out.
-/// - When a scene is being switched out of, its `deinit()` method is called to perform any one-time work or cleanup.
-///
-/// Scene objects are not deallocated between scene switches, but can choose to reset state in `init()` and `deinit()`.
-pub trait Scene {
-    /// Called before a scene has started updating
-    // TODO: Should probably call this new() and give it a Display+RNG instead
-    fn init(&mut self, ctx: &mut Context<'_>) {
-        let _ = ctx;
-    }
+/// Information passed to scens with [`Scene::update()`]
+pub struct Context<'a> {
+    /// Random Number Generator
+    pub rng: &'a mut SmallRng,
 
+    /// Whether or not the A button / Key1 is pressed
+    pub btn_a: bool,
+
+    /// Whether or not the B button / Key0 is pressed
+    pub btn_b: bool,
+
+    /// Time in microseconds since boot, so that scenes can wait
+    pub time: u64,
+}
+
+/// A trait that describes what actions a Scene might need to do in response to user input
+pub trait Scene {
     /// Called in a loop with user input updates etc
     ///
-    /// Returns true if it wants a screen update
+    /// Returns true when the display should update. Implementors that do not change what they present can return false
+    /// to help the system do fewer display updates.
     fn update<Device, DataCmdPin>(
         &mut self,
         ctx: &mut Context<'_>,
@@ -45,24 +49,4 @@ pub trait Scene {
     where
         DataCmdPin: embedded_hal::digital::OutputPin,
         Device: embedded_hal::spi::SpiDevice;
-
-    /// After a scene stops being in focus, its deinit() method is called to perform any additional one-time work or cleanup resources.
-    fn deinit(&mut self, ctx: &mut Context<'_>) {
-        let _ = ctx;
-    }
-}
-
-/// Information passed to [`Scene::update()`] call
-pub struct Context<'a> {
-    /// Random Number Generator
-    pub rng: &'a mut SmallRng,
-
-    /// Whether the A button / Key1 is pressed or not
-    pub btn_a: bool,
-
-    /// Whether the B button / Key0 is pressed or not
-    pub btn_b: bool,
-
-    /// Time in microseconds so that scenes can wait
-    pub time: u64,
 }

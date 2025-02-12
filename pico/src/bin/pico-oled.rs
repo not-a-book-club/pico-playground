@@ -278,7 +278,6 @@ fn main() {
     if load_main_scene {
         // let mut scene = pico::scene::DebugTextScene::new();
         let mut scene = pico::scene::BitflipperScene::new(&display);
-        scene.init(&mut ctx);
 
         loop {
             ctx.btn_a = btn_a.is_low().unwrap();
@@ -311,7 +310,6 @@ fn main() {
         }
     } else {
         let mut scene = pico::scene::CreditsScene::new();
-        scene.init(&mut ctx);
 
         loop {
             ctx.btn_a = btn_a.is_low().unwrap();
