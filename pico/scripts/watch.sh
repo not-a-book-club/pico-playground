@@ -1,4 +1,7 @@
 #!/bin/bash
+set -ex
+
+BIN=${BIN:-"pico-oled"}
 
 if [ "$#" -eq 2 ] && [ "$2" == "looping" ]; then
     set -x
@@ -11,11 +14,11 @@ if [ "$#" -eq 2 ] && [ "$2" == "looping" ]; then
 
     cargo build
     # cargo run
-    cargo run --release
+    cargo run --release --bin $BIN
 
     cargo doc --document-private-items
 
-    cargo size --bin pico-oled -- -A
+    cargo size --bin $BIN -- -A
 else
     cargo watch -c -s "sh $(realpath $BASH_SOURCE) $1 looping"
 fi
