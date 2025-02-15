@@ -42,7 +42,6 @@ bytemuck = { version = "1.21", features = ["derive", "min_const_generics"] }
 proc-bitfield = "0.5"
 indoc = "2"
 
-
 [dev-dependencies]
 pretty_assertions = "1.4"
 rstest = "0.24"
@@ -55,3 +54,8 @@ opt-level = "z"
 # Enable minimal optimizations for our debug code.
 [profile.dev]
 opt-level = 1
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
