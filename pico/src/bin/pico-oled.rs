@@ -35,6 +35,15 @@ use pico::scene::*;
 #[global_allocator]
 static HEAP: Heap = Heap::empty();
 
+#[link_section = ".bi_entries"]
+#[used]
+pub static PICOTOOL_ENTRIES: [rp_binary_info::EntryAddr; 4] = [
+    rp_binary_info::rp_program_name!(c"Bit Flipper"),
+    rp_binary_info::rp_program_build_attribute!(),
+    rp_binary_info::rp_cargo_version!(),
+    rp_binary_info::rp_program_description!(c"flips your bits~"),
+];
+
 #[cortex_m_rt::entry]
 fn entry() -> ! {
     main();

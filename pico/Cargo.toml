@@ -19,6 +19,7 @@ bench = false
 [target.'cfg(all(target_arch = "arm", target_os = "none"))'.dependencies]
 defmt-rtt = "0.4"
 rp-pico = "0.9"
+rp-binary-info = { version = "0.1.0", features = ["binary-info"] }
 
 [dependencies]
 # Embedded Things
