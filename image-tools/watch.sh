@@ -16,6 +16,14 @@ if [ "$#" -eq 2 ] && [ "$2" == "looping" ]; then
     cargo build
     cargo run -- --help
     ./run.sh
+
+    pushd ../pico
+    cargo clippy
+    cargo fmt
+    cargo build --release --bin bad-apple
+    cargo run   --release --bin bad-apple || true
+
+    popd
 else
     cargo watch -c -s "sh $(realpath $BASH_SOURCE) $1 looping"
 fi

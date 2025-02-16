@@ -446,6 +446,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "image-tools"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "simulations",
+]
+
+[[package]]
 name = "indexmap"
 version = "2.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -576,6 +584,7 @@ dependencies = [
  "embedded-hal 1.0.0",
  "embedded-hal-bus",
  "fugit",
+ "image-tools",
  "indoc",
  "panic-persist",
  "panic-probe",

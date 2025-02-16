@@ -42,7 +42,8 @@ panic-probe = "0.3"
 
 # Local deps
 simulations = { path = "../simulations", default-features = false }
-rand = { version = "0.8", features = ["small_rng"], default-features = false }
+image-tools = { path = "../image-tools", default-features = false, features = ["decoder"] }
+rand = { version = "0.8", default-features = false, features = ["small_rng"] }
 
 # Everything else
 bytemuck = { version = "1.21", features = ["derive", "min_const_generics"] }
