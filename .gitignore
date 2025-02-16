@@ -2,3 +2,8 @@
 *.elf
 *.uf2
 /misc/
+
+*.png
+*.bmp
+*.wav
+*.bin
