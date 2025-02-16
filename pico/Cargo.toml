@@ -16,6 +16,12 @@ path = "src/bin/pico-oled.rs"
 test = false
 bench = false
 
+[[bin]]
+name = "bad-apple"
+path = "src/bin/bad-apple.rs"
+test = false
+bench = false
+
 [target.'cfg(all(target_arch = "arm", target_os = "none"))'.dependencies]
 defmt-rtt = "0.4"
 rp-pico = "0.9"

@@ -20,6 +20,10 @@ pub use debug_text::*;
 mod credits;
 pub use credits::*;
 
+/// A scene that just plays Bad Apple
+mod bad_apple;
+pub use bad_apple::*;
+
 /// Information passed to scens with [`Scene::update()`]
 pub struct Context<'a> {
     /// Random Number Generator
