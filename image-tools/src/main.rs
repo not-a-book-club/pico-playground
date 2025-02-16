@@ -1,13 +1,7 @@
-#![allow(unused)]
-
-use std::{
-    fs::File,
-    io::{Cursor, Write},
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use clap::Parser;
-use image::{imageops, ImageBuffer};
+use image::imageops;
 use indicatif::*;
 use rayon::prelude::*;
 use regex::Regex;
@@ -44,34 +38,6 @@ struct Opts {
     #[arg(long, default_value = "1")]
     frame_rate_div: usize,
 }
-
-#[derive(Copy, Clone, Debug)]
-#[repr(C)]
-pub struct VideoBufferHeader {
-    version: u32,
-    n_frames: u32,
-
-    // Reserve some space
-    reserved: [u32; 31],
-}
-
-impl VideoBufferHeader {
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
-
-impl Default for VideoBufferHeader {
-    fn default() -> Self {
-        Self {
-            version: 1,
-            ..bytemuck::Zeroable::zeroed()
-        }
-    }
-}
-
-unsafe impl bytemuck::Pod for VideoBufferHeader {}
-unsafe impl bytemuck::Zeroable for VideoBufferHeader {}
 
 fn main() {
     let opts = Opts::parse();
@@ -115,11 +81,11 @@ fn main() {
         println!();
     }
 
-    println!("+ Loading frames");
+    println!("+ Loading {} frames", file_paths.len());
     let full_frames: Vec<_> = file_paths
         .par_iter()
         .progress()
-        .map(|(id, path)| {
+        .map(|(_id, path)| {
             let img = image::open(path).unwrap();
             img.to_luma8()
         })
@@ -134,50 +100,34 @@ fn main() {
         full_frames[0].height(),
     );
 
+    // Note: HumanCount doesn't respect format controls, so we `to_string()` and format that.
     println!(
-        "+ Dimensions: {} x {}",
-        HumanCount(full_frames[0].width() as u64),
-        HumanCount(full_frames[0].height() as u64),
+        "+ OLD Dimensions: {:>5} x {:>5}",
+        HumanCount(full_frames[0].width() as u64).to_string(),
+        HumanCount(full_frames[0].height() as u64).to_string(),
     );
-    let estimated_pixels: u64 = full_frames
-        .iter()
-        .inspect(|img| {
-            assert_eq!(
-                (img.width(), img.height()),
-                (full_frames[0].width(), full_frames[0].height())
-            )
-        })
-        .map(memory_estimate)
-        .sum();
-    let estimated_pixels = HumanCount(estimated_pixels);
-    println!("+ Estimated pixel total: {estimated_pixels}");
-    println!();
+    println!(
+        "+ NEW dimensions: {:>5} x {:>5}",
+        HumanCount(out_width as u64).to_string(),
+        HumanCount(out_height as u64).to_string(),
+    );
 
     // These are our resized, adjusted frames!
-    println!("+ Resizing video data");
+    println!("+ Processing frames");
     let frames: Vec<_> = (0..full_frames.len())
         .into_par_iter()
         .progress()
         .map(|i| {
-            imageops::resize(
+            let img = imageops::resize(
                 &full_frames[i],
                 out_width,
                 out_height,
                 imageops::FilterType::Nearest,
-            )
-        })
-        .collect();
-    println!("+ Done");
-    println!();
+            );
 
-    println!("+ Filtering colors");
-    let frames: Vec<BitGrid> = frames
-        .into_par_iter()
-        .progress()
-        .map(|img| {
-            // .
             let mut bitmap = BitGrid::new(img.width() as usize, img.height() as usize);
             for (x, y, px) in img.enumerate_pixels() {
+                // TODO: Would be nice to dither or something
                 let is_white = px.0[0] > 0x80;
                 bitmap.set(x as _, y as _, is_white);
             }
@@ -187,38 +137,13 @@ fn main() {
     println!("+ Done");
     println!();
 
-    println!("+ NEW dimensions: {out_width} x {out_height}");
-    let new_estimate = frames
-        .iter()
-        .map(|bitmap| bitmap.as_bytes().len() as u64)
-        .sum();
-    let new_estimate = HumanCount(new_estimate);
-    println!("+ Estimated NEW pixel total: {new_estimate}");
-    println!();
-
-    // Pack everything into a buffer
-    let mut packed_buffer: Vec<u8> = vec![];
-    let mut cursor = Cursor::new(&mut packed_buffer);
-
-    // TODO: Real encoding/decoding lib + unit tests
-    // let header = VideoBufferHeader {
-    //     n_frames: frames.len() as u32,
-    //     ..VideoBufferHeader::new()
-    // };
-    // cursor.write_all(bytemuck::bytes_of(&header)).unwrap();
-
-    for frame in &frames {
-        let bytes = frame.as_bytes();
-        let len = bytes.len() as u32;
-        cursor.write_all(&len.to_le_bytes()).unwrap();
-        cursor.write_all(bytes).unwrap();
-        assert_eq!(cursor.position() % (4 + len) as u64, 0);
+    let mut encoder = image_tools::VideoEncoder::new();
+    for frame in frames {
+        encoder.push(frame);
     }
 
-    println!(
-        "+ Packed into {} bytes",
-        BinaryBytes(packed_buffer.len() as u64)
-    );
+    let packed_buffer: Vec<u8> = encoder.encode_to_vec().unwrap();
+    println!("+ Packed into {}.", BinaryBytes(packed_buffer.len() as u64));
 
     let mut output = opts.output;
     if output.is_dir() {
@@ -262,8 +187,7 @@ fn find_files(dir: &Path, pattern: Regex) -> Vec<(usize, PathBuf)> {
     let missing: Vec<_> = seen
         .into_iter()
         .enumerate()
-        .filter(|(id, seen)| !*seen)
-        .filter(|(id, _)| *id > 0 && *id < files.len())
+        .filter(|(id, seen)| (!*seen) && (*id > 0) && (*id < files.len()))
         .collect();
     if !missing.is_empty() {
         println!(
@@ -303,21 +227,6 @@ fn resolve_dimensions(
             (w, h)
         }
     }
-}
-
-fn memory_estimate<P, C>(img: &ImageBuffer<P, C>) -> u64
-where
-    P: image::Pixel,
-    C: std::ops::Deref<Target = [P::Subpixel]>,
-{
-    let image::flat::SampleLayout {
-        width,
-        height,
-        channels,
-        ..
-    } = img.sample_layout();
-    // width as u64 * height as u64 * channels as u64 * 8 /* bits per channel */
-    img.as_raw().len() as u64 * std::mem::size_of::<P::Subpixel>() as u64
 }
 
 #[cfg(test)]

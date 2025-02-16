@@ -4,19 +4,30 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default = ["encoder", "decoder", "std"]
-encoder = ["std"]
+default = ["encoder", "decoder", "tool"]
+encoder = ["std", "image", "rayon"]
 decoder = []
+tool = ["encoder", "clap", "indicatif", "regex"]
 std = []
 
+[[bin]]
+name = "image-tools"
+path = "src/main.rs"
+required-features = ["tool"]
+
 [dependencies]
-bytemuck = { version = "1", features = ["min_const_generics", "track_caller"] }
-clap = { version = "4.5", features = ["derive"] }
-image = "0.25"
-indicatif = { version = "0.17", features = ["rayon"] }
-rayon = "1"
-regex = "1"
-simulations = { version = "0.1.0", path = "../simulations" }
+# Used in no_std (decoder)
+bytemuck    = { version = "1", features = ["min_const_generics", "track_caller"] }
+simulations = { version = "0.1.0", default-features = false, path = "../simulations" }
+
+# Used in encoder
+image     = { version = "0.25", optional = true }
+rayon     = { version = "1",    optional = true }
+
+# Used in tool
+clap      = { version = "4.5",  optional = true, features = ["derive"] }
+indicatif = { version = "0.17", optional = true,  features = ["rayon"] }
+regex     = { version = "1",    optional = true }
 
 # Enable full optimizations on debug builds of dependencies.
 # We rarely step through them.
