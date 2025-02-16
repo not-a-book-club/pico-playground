@@ -26,15 +26,15 @@ struct Opts {
     #[arg(long)]
     height: Option<u32>,
 
-    /// Skip the first N frames
+    /// Discard the first N frames, and continue taking frames after
     #[arg(long)]
-    skip_first: Option<usize>,
+    skip: Option<usize>,
 
-    /// Only take N frames
+    /// Take N frames and discard the rest
     #[arg(long)]
-    n_frames: Option<usize>,
+    take: Option<usize>,
 
-    /// Drop every Nth frame to reduce framerates
+    /// Drop frames to reduce framerates "1" keeps every frame, "2" keeps every other, "3" keeps every 3rd, etc
     #[arg(long, default_value = "1")]
     frame_rate_div: usize,
 }
@@ -48,9 +48,9 @@ fn main() {
     let mut file_paths = find_files(&opts.frames_dir, pattern);
     println!("+ Found {} frames", file_paths.len());
 
-    if let Some(skip_first) = opts.skip_first {
-        println!("+ Skipping first {skip_first} frames");
-        file_paths.drain(..skip_first);
+    if let Some(skip) = opts.skip {
+        println!("+ Skipping first {skip} frames");
+        file_paths.drain(..skip);
         println!("+ Done (now have {} frames)", file_paths.len());
         println!();
     }
@@ -73,10 +73,10 @@ fn main() {
         println!();
     }
 
-    if let Some(n_frames) = opts.n_frames {
-        println!("+ Truncating to {n_frames} frames");
-        let n_frames = file_paths.len().min(n_frames);
-        file_paths.drain(n_frames..);
+    if let Some(take) = opts.take {
+        println!("+ Truncating to {take} frames");
+        let take = file_paths.len().min(take);
+        file_paths.drain(take..);
         println!("+ Done (now have {} frames)", file_paths.len());
         println!();
     }
@@ -137,13 +137,13 @@ fn main() {
     println!("+ Done");
     println!();
 
+    println!("+ Encoding");
     let mut encoder = image_tools::VideoEncoder::new();
     for frame in frames {
         encoder.push(frame);
     }
-
     let packed_buffer: Vec<u8> = encoder.encode_to_vec().unwrap();
-    println!("+ Packed into {}.", BinaryBytes(packed_buffer.len() as u64));
+    println!("+ Encoded as {}.", BinaryBytes(packed_buffer.len() as u64));
 
     let mut output = opts.output;
     if output.is_dir() {
@@ -164,8 +164,6 @@ fn find_files(dir: &Path, pattern: Regex) -> Vec<(usize, PathBuf)> {
             if let Some(matches) = pattern.captures(&path.as_os_str().to_string_lossy()) {
                 let id = matches.get(1).expect("pattern matched but no capture?");
                 let id: usize = id.as_str().parse().unwrap();
-
-                // let file = File::open(&path).unwrap();
 
                 files.push((id, path));
             }
