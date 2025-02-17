@@ -145,6 +145,9 @@ fn main() {
     let packed_buffer: Vec<u8> = encoder.encode_to_vec().unwrap();
     println!("+ Encoded as {}.", BinaryBytes(packed_buffer.len() as u64));
 
+    let decoder = image_tools::VideoDecoder::new(&packed_buffer);
+    println!("+ {:#?}", decoder.header());
+
     let mut output = opts.output;
     if output.is_dir() {
         output.push("out.bin");

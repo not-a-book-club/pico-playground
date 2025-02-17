@@ -1,1 +1,2 @@
-*.bin diff=bin
+*.bin   diff=bin
+*.video diff=bin

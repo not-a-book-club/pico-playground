@@ -1,7 +1,7 @@
 use alloc::vec;
 use alloc::vec::Vec;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct BitGrid {
     buf: Vec<u8>,
     width: i16,
@@ -25,6 +25,10 @@ impl BitGrid {
 
     pub fn height(&self) -> i16 {
         self.height
+    }
+
+    pub fn dims(&self) -> (i16, i16) {
+        (self.width(), self.height())
     }
 
     pub fn is_empty(&self) -> bool {

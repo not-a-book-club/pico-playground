@@ -130,6 +130,10 @@ impl Life {
             chunk.copy_from_slice(&rand_bytes[..chunk.len()]);
         }
     }
+
+    pub fn as_bitgrid(&self) -> &BitGrid {
+        &self.cells
+    }
 }
 
 /// Patterns

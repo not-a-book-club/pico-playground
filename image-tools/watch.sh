@@ -11,18 +11,33 @@ if [ "$#" -eq 2 ] && [ "$2" == "looping" ]; then
     cargo clippy --no-default-features --features="decoder" --target="thumbv6m-none-eabi"
 
     cargo fmt
+
+    pushd ../simulations
+    cargo clippy
+    cargo fmt
+    popd
+
+    pushd ../pico
+    cargo clippy
+    cargo fmt
+    popd
+
     cargo nextest run
+    # cargo test
+    cargo doc
 
     cargo build
     cargo run -- --help
     ./run.sh
 
-    pushd ../pico
+    pushd ../simulations
     cargo clippy
     cargo fmt
+    popd
+
+    pushd ../pico
     cargo build --release --bin bad-apple
     cargo run   --release --bin bad-apple || true
-
     popd
 else
     cargo watch -c -s "sh $(realpath $BASH_SOURCE) $1 looping"

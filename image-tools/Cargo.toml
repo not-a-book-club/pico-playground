@@ -17,8 +17,9 @@ required-features = ["tool"]
 
 [dependencies]
 # Used in no_std (decoder)
-bytemuck    = { version = "1", features = ["min_const_generics", "track_caller"] }
+bytemuck    = { version = "1", features = ["min_const_generics", "track_caller", "derive"] }
 simulations = { version = "0.1.0", default-features = false, path = "../simulations" }
+static_assertions = "1"
 
 # Used in encoder
 image     = { version = "0.25", optional = true }
@@ -28,6 +29,9 @@ rayon     = { version = "1",    optional = true }
 clap      = { version = "4.5",  optional = true, features = ["derive"] }
 indicatif = { version = "0.17", optional = true,  features = ["rayon"] }
 regex     = { version = "1",    optional = true }
+
+[dev-dependencies]
+pretty_assertions = "1"
 
 # Enable full optimizations on debug builds of dependencies.
 # We rarely step through them.

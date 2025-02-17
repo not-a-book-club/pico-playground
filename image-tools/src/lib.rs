@@ -1,5 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-#![allow(unused)]
+// We would prefer not to need unsafe code for this. Defer that to bytemuck
+// If this is too strict, `#[allow(unsafe_code)]` is a local workaround.
+#![deny(unsafe_code)]
 
 // Note: Encoding DOES require "std"
 #[cfg(feature = "encoder")]
@@ -23,30 +25,4 @@ pub mod decoder;
 #[cfg(feature = "decoder")]
 pub use decoder::VideoDecoder;
 
-#[derive(Copy, Clone, Debug)]
-#[repr(C)]
-pub struct VideoBufferHeader {
-    version: u32,
-    n_frames: u32,
-
-    // Reserve some space
-    reserved: [u32; 31],
-}
-
-impl VideoBufferHeader {
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
-
-impl Default for VideoBufferHeader {
-    fn default() -> Self {
-        Self {
-            version: 1,
-            ..bytemuck::Zeroable::zeroed()
-        }
-    }
-}
-
-unsafe impl bytemuck::Pod for VideoBufferHeader {}
-unsafe impl bytemuck::Zeroable for VideoBufferHeader {}
+pub mod codec;
