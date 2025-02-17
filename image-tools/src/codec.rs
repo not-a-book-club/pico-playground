@@ -10,7 +10,7 @@ use simulations::BitGrid;
 /// `BITVIDEO🍎`
 const MAGIC: [u8; 12] = *b"BITVIDEO\xF0\x9F\x8D\x8E";
 
-const VERSION: u32 = 1;
+const VERSION: u32 = 2;
 
 #[derive(Copy, Clone, Pod, Zeroable, PartialEq, Eq)]
 #[repr(C)]
@@ -69,9 +69,10 @@ impl Debug for CodecHeader {
 
 #[derive(Copy, Clone, Debug, Pod, Zeroable, PartialEq, Eq)]
 #[repr(transparent)]
-pub struct CompressionKind(u8);
+pub struct FrameCompressionKind(pub u8);
+assert_eq_size!(FrameCompressionKind, u8);
 
-impl CompressionKind {
+impl FrameCompressionKind {
     /// "Compression" that stores the complete bitmap.
     ///
     /// Frames "compressed" with this method can be read straight into a [`BitGrid`] object:
@@ -95,30 +96,59 @@ impl CompressionKind {
     /// Note: The codec stores the dimensions for the frames
     pub const RUN_LENGTH_ENCODING: Self = Self(1);
 }
-assert_eq_size!(CompressionKind, u8);
+
+#[derive(Copy, Clone, Debug, Pod, Zeroable, PartialEq, Eq)]
+#[repr(transparent)]
+pub struct ChunkKind(pub u16);
+assert_eq_size!(ChunkKind, u16);
+
+impl ChunkKind {
+    pub const COMPRESSED_FRAME: Self = Self(1);
+}
 
 #[derive(Copy, Clone, Debug, Pod, Zeroable, PartialEq, Eq)]
 #[repr(C)]
-pub struct CodecChunkFrame {
-    /// The count of bytes immediately after this header that are part of this frame
+pub struct CodecChunkCommon {
+    pub kind: ChunkKind,
+
+    /// The count of bytes immediately after this chunk header that are part of this frame
+    ///
+    /// Note: This is the entire chunk header, not just the "common" base
     pub size: u16,
+}
+assert_eq_size!(CodecChunkCommon, [u16; 2]);
+
+#[derive(Copy, Clone, Debug, Pod, Zeroable, PartialEq, Eq)]
+#[repr(C)]
+pub struct CodecChunkCompressedFrame {
+    pub common: CodecChunkCommon,
 
     /// What kind of compression was used for this frame
-    pub compression: CompressionKind,
+    pub compression: FrameCompressionKind,
 
     /// If this is `0`, the "background" players should use is "unset" aka BLACK.
     /// If this is `1`, the "background" players should use is "set" aka WHITE.
     /// Other values are reserved.
     pub background_set: u8,
-
-    pub reserved: [u32; 1],
 }
-assert_eq_size!(CodecChunkFrame, [u32; 2]);
+assert_eq_size!(CodecChunkCompressedFrame, [u8; 6]);
 
-impl CodecChunkFrame {
+impl CodecChunkCompressedFrame {
     pub const SIZE: usize = core::mem::size_of::<Self>();
+
+    pub fn new() -> Self {
+        let mut this = Self::zeroed();
+        this.common.kind = ChunkKind::COMPRESSED_FRAME;
+        this
+    }
 
     pub fn read(bytes: &[u8]) -> Option<Self> {
         Some(bytemuck::pod_read_unaligned(bytes.get(..Self::SIZE)?))
+    }
+}
+
+impl Default for CodecChunkCompressedFrame {
+    fn default() -> Self {
+        Self::new()
     }
 }

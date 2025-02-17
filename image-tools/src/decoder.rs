@@ -45,6 +45,12 @@ impl<'a> VideoDecoder<'a> {
         let header = CodecHeader::read(&bytes[..curr])
             // This is a fixed size so easy to catch
             .expect("Need more bytes to read CodecHeader");
+        if header.version != 2 {
+            panic!(
+                "Unsupported video codec version: {}, we support version: 2",
+                header.version
+            );
+        }
         let bitmap = BitGrid::new(header.width as _, header.height as _);
 
         Self {
@@ -83,7 +89,7 @@ impl<'a> VideoDecoder<'a> {
     }
 
     pub fn next_frame(&mut self) -> Option<Frame> {
-        let chunk = CodecChunkFrame::read(self.next(CodecChunkFrame::SIZE)?)?;
+        let chunk = CodecChunkCompressedFrame::read(self.next(CodecChunkCompressedFrame::SIZE)?)?;
 
         // Move our `bitmap` into the stackframe to convince the borrow checker that
         //`self.next()` doesn't introduce aliasing.
@@ -91,9 +97,9 @@ impl<'a> VideoDecoder<'a> {
         let mut bitmap = BitGrid::new(0, 0);
         core::mem::swap(&mut bitmap, &mut self.bitmap);
 
-        if chunk.compression == CompressionKind::UNCOMPRESSED {
+        if chunk.compression == FrameCompressionKind::UNCOMPRESSED {
             // Bulk-copy everything
-            let bytes = self.next(chunk.size as usize)?;
+            let bytes = self.next(chunk.common.size as usize)?;
             bitmap.as_mut_bytes().copy_from_slice(bytes);
         } else {
             unimplemented!();

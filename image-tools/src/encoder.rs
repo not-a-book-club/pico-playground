@@ -55,23 +55,20 @@ impl VideoEncoder {
         w.write_all(bytemuck::bytes_of(&header))?;
 
         for frame in self.frames.drain(..) {
-            let compression = CompressionKind::UNCOMPRESSED;
+            let compression = FrameCompressionKind::UNCOMPRESSED;
 
-            if compression == CompressionKind::UNCOMPRESSED {
+            if compression == FrameCompressionKind::UNCOMPRESSED {
                 let bytes = frame.as_bytes();
-                let size = bytes.len() as u16;
 
-                let chunk = CodecChunkFrame {
-                    size,
-                    compression,
-                    background_set: 0,
-                    reserved: [0; 1],
-                };
+                let mut chunk = CodecChunkCompressedFrame::new();
+                chunk.common.size = bytes.len() as u16;
+                chunk.compression = compression;
+                chunk.background_set = 0;
 
                 w.write_all(bytemuck::bytes_of(&chunk))?;
                 w.write_all(bytes)?;
             } else {
-                unimplemented!()
+                unimplemented!("Compression kind {compression:?} is not supported");
             }
         }
 
