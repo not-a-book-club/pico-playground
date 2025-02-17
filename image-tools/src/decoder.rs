@@ -33,8 +33,8 @@ impl Debug for Frame<'_> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Frame")
             .field("id", &self.id)
-            .field("bitmap dims", &self.bitmap.dims())
             .field("background_set", &self.background_set)
+            .field("bitmap dims", &self.bitmap.dims())
             .finish()
     }
 }
@@ -97,12 +97,16 @@ impl<'a> VideoDecoder<'a> {
         let mut bitmap = BitGrid::new(0, 0);
         core::mem::swap(&mut bitmap, &mut self.bitmap);
 
+        let bytes = self.next(chunk.common.size as usize)?;
+
         if chunk.compression == FrameCompressionKind::UNCOMPRESSED {
             // Bulk-copy everything
-            let bytes = self.next(chunk.common.size as usize)?;
             bitmap.as_mut_bytes().copy_from_slice(bytes);
+        } else if chunk.compression == FrameCompressionKind::RUN_LENGTH_ENCODING {
+            bitmap.clear();
+            expand_runlength(&mut bitmap, bytes);
         } else {
-            unimplemented!();
+            unimplemented!("Unsupported compression kind: {:?}", chunk.compression);
         }
 
         // Move it back
@@ -114,5 +118,36 @@ impl<'a> VideoDecoder<'a> {
             bitmap: &self.bitmap,
             background_set: false,
         })
+    }
+}
+
+fn expand_runlength(bitmap: &mut BitGrid, in_bytes: &[u8]) {
+    let mut x = 0;
+    let mut y = 0;
+
+    for pair in in_bytes.chunks(2) {
+        let [num_black, num_white] = [pair[0], *pair.get(1).unwrap_or(&0)];
+
+        // Skip black pixels
+        for _ in 0..num_black {
+            x += 1;
+            if x >= bitmap.width() {
+                x = 0;
+                y += 1;
+            }
+
+            // skip
+        }
+
+        // Write white pixels
+        for _ in 0..num_white {
+            bitmap.set(x, y, true);
+
+            x += 1;
+            if x >= bitmap.width() {
+                x = 0;
+                y += 1;
+            }
+        }
     }
 }

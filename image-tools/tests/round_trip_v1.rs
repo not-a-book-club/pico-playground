@@ -297,7 +297,9 @@ fn check_one_frame_runlength_1() {
     let frame = decoder.next_frame();
     if let Some(frame) = &frame {
         save_test_image("check_one_frame_runlength_1", "2x2", frame.bitmap);
+        assert_eq!(frame.bitmap.as_bytes(), bitmap.as_bytes());
     }
+
     assert_eq!(
         frame,
         Some(Frame {

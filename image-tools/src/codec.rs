@@ -43,7 +43,7 @@ impl CodecHeader {
             n_frames: n_frames as u32,
             width: width as u16,
             height: height as u16,
-            ..Zeroable::zeroed()
+            reserved: Zeroable::zeroed(),
         }
     }
 
@@ -67,7 +67,7 @@ impl Debug for CodecHeader {
     }
 }
 
-#[derive(Copy, Clone, Debug, Pod, Zeroable, PartialEq, Eq)]
+#[derive(Copy, Clone, Pod, Zeroable, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct FrameCompressionKind(pub u8);
 assert_eq_size!(FrameCompressionKind, u8);
@@ -97,13 +97,36 @@ impl FrameCompressionKind {
     pub const RUN_LENGTH_ENCODING: Self = Self(1);
 }
 
-#[derive(Copy, Clone, Debug, Pod, Zeroable, PartialEq, Eq)]
+impl Debug for FrameCompressionKind {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let name = match self.0 {
+            0 => "UNCOMPRESSED",
+            1 => "RUN_LENGTH_ENCODING",
+            _ => "UNKNOWN",
+        };
+
+        write!(f, "{name}({}_u8)", self.0)
+    }
+}
+
+#[derive(Copy, Clone, Pod, Zeroable, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct ChunkKind(pub u16);
 assert_eq_size!(ChunkKind, u16);
 
 impl ChunkKind {
     pub const COMPRESSED_FRAME: Self = Self(1);
+}
+
+impl Debug for ChunkKind {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let name = match self.0 {
+            1 => "COMPRESSED_FRAME",
+            _ => "UNKNOWN",
+        };
+
+        write!(f, "{name}({}_u16)", self.0)
+    }
 }
 
 #[derive(Copy, Clone, Debug, Pod, Zeroable, PartialEq, Eq)]
@@ -136,19 +159,14 @@ assert_eq_size!(CodecChunkCompressedFrame, [u8; 6]);
 impl CodecChunkCompressedFrame {
     pub const SIZE: usize = core::mem::size_of::<Self>();
 
-    pub fn new() -> Self {
+    pub fn new(size: u16) -> Self {
         let mut this = Self::zeroed();
         this.common.kind = ChunkKind::COMPRESSED_FRAME;
+        this.common.size = size;
         this
     }
 
     pub fn read(bytes: &[u8]) -> Option<Self> {
         Some(bytemuck::pod_read_unaligned(bytes.get(..Self::SIZE)?))
-    }
-}
-
-impl Default for CodecChunkCompressedFrame {
-    fn default() -> Self {
-        Self::new()
     }
 }
