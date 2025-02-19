@@ -246,6 +246,7 @@ fn main() {
         if scene.update(&mut ctx, &mut display) {
             display.flush();
         }
-        delay.delay_ms(50);
+
+        delay.delay_us(1_000);
     }
 }
