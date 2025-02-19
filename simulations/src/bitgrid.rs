@@ -90,6 +90,20 @@ impl BitGrid {
 
         (idx as usize, bit as u8)
     }
+
+    pub fn diff_with(&self, other: &BitGrid) -> BitGrid {
+        assert_eq!(self.width(), other.width());
+        assert_eq!(self.height(), other.height());
+
+        let mut diff = Self::new(self.width() as _, self.height() as _);
+        let bytes = diff.as_mut_bytes();
+
+        for (i, (a, b)) in self.as_bytes().iter().zip(other.as_bytes()).enumerate() {
+            bytes[i] = a ^ b;
+        }
+
+        diff
+    }
 }
 
 #[cfg(test)]
