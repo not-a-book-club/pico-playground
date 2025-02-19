@@ -100,6 +100,17 @@ fn compress_runlength(frame: &BitGrid) -> Vec<u8> {
     let mut count: u8 = 0;
     for y in 0..frame.height() {
         for x in 0..frame.width() {
+            if count == u8::MAX {
+                // Break up long streaks to prevent 8-bit overflow.
+
+                // We'll write out our max length,
+                cursor.write_all(&[u8::MAX]).unwrap();
+                // Write out a 0 for the other color, so we're back to the same color
+                cursor.write_all(&[0]).unwrap();
+
+                count = 0;
+            }
+
             if frame.get(x, y) != color {
                 cursor.write_all(&[count]).unwrap();
 

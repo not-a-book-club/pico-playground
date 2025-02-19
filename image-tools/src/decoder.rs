@@ -100,8 +100,8 @@ impl<'a> VideoDecoder<'a> {
         let bytes = self.next(chunk.common.size as usize)?;
 
         if chunk.compression == FrameCompressionKind::UNCOMPRESSED {
-            // Bulk-copy everything
-            bitmap.as_mut_bytes().copy_from_slice(bytes);
+            bitmap.clear();
+            expand_uncompressed(&mut bitmap, bytes);
         } else if chunk.compression == FrameCompressionKind::RUN_LENGTH_ENCODING {
             bitmap.clear();
             expand_runlength(&mut bitmap, bytes);
@@ -119,6 +119,11 @@ impl<'a> VideoDecoder<'a> {
             background_set: false,
         })
     }
+}
+
+fn expand_uncompressed(bitmap: &mut BitGrid, in_bytes: &[u8]) {
+    // Bulk-copy everything
+    bitmap.as_mut_bytes().copy_from_slice(in_bytes);
 }
 
 fn expand_runlength(bitmap: &mut BitGrid, in_bytes: &[u8]) {

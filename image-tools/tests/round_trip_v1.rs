@@ -74,8 +74,9 @@ fn check_one_frame() {
     let mut encoder = VideoEncoder::new();
 
     // Encode a lone glider
-    let mut life = simulations::Life::new(9, 4);
-    life.write_left_glider(0, 0);
+    let mut life = simulations::Life::new(12, 10);
+    life.write_left_glider(1, 1);
+    life.write_left_glider(8, 6);
     let left: BitGrid = life.as_bitgrid().clone();
     save_test_image("check_one_frame", "left_good", &left);
 
@@ -124,20 +125,19 @@ fn check_two_frames() {
     // ## Encode
     let mut encoder = VideoEncoder::new();
 
-    let mut life = simulations::Life::new(20, 10);
+    let mut life = simulations::Life::new(12, 10);
     // LEFT
-    life.write_left_glider(0, 0);
+    life.write_left_glider(1, 1);
+    life.write_left_glider(8, 6);
     let left: BitGrid = life.as_bitgrid().clone();
     save_test_image("check_two_frames", "left_good", &left);
 
     // RIGHT
     life.clear();
-    life.write_right_glider(0, 0);
+    life.write_right_glider(1, 1);
+    life.write_right_glider(8, 6);
     let right: BitGrid = life.as_bitgrid().clone();
     save_test_image("check_two_frames", "right_good", &right);
-
-    // Done with this now!
-    drop(life);
 
     encoder.push(left.clone());
     encoder.push(right.clone());
@@ -150,8 +150,8 @@ fn check_two_frames() {
     let header = decoder.header();
     dbg!(header);
     assert_eq!(header.n_frames, 2);
-    assert_eq!(header.width, 20);
-    assert_eq!(header.height, 10);
+    assert_eq!(header.width, life.width() as _);
+    assert_eq!(header.height, life.height() as _);
 
     // Reserved are always set to 0
     assert_eq!(
@@ -163,6 +163,11 @@ fn check_two_frames() {
     let frame = decoder.next_frame();
     if let Some(frame) = &frame {
         save_test_image("check_two_frames", "left", frame.bitmap);
+    } else {
+        println!(
+            "Got no next frame, cannot save {}, {}",
+            "check_two_frames", "left"
+        );
     }
     assert_eq!(
         frame,
@@ -177,6 +182,11 @@ fn check_two_frames() {
     let frame = decoder.next_frame();
     if let Some(frame) = &frame {
         save_test_image("check_two_frames", "right", frame.bitmap);
+    } else {
+        println!(
+            "Got no next frame, cannot save {}, {}",
+            "check_two_frames", "right"
+        );
     }
     assert_eq!(
         frame,
@@ -199,18 +209,15 @@ fn check_two_frames_with_reset() {
     // ## Encode
     let mut encoder = VideoEncoder::new();
 
-    let mut life = simulations::Life::new(20, 10);
+    let mut life = simulations::Life::new(12, 10);
     // LEFT
-    life.write_left_glider(0, 0);
+    life.write_left_glider(1, 1);
     let left: BitGrid = life.as_bitgrid().clone();
 
     // RIGHT
     life.clear();
-    life.write_right_glider(0, 0);
+    life.write_right_glider(1, 1);
     let right: BitGrid = life.as_bitgrid().clone();
-
-    // Done with this now!
-    drop(life);
 
     encoder.push(left.clone());
     encoder.push(right.clone());
@@ -226,8 +233,8 @@ fn check_two_frames_with_reset() {
         let header = decoder.header();
         dbg!(header);
         assert_eq!(header.n_frames, 2);
-        assert_eq!(header.width, 20);
-        assert_eq!(header.height, 10);
+        assert_eq!(header.width, life.width() as _);
+        assert_eq!(header.height, life.height() as _);
 
         // Reserved are always set to 0
         assert_eq!(
@@ -305,6 +312,103 @@ fn check_one_frame_runlength_1() {
         Some(Frame {
             id: 1,
             bitmap: &bitmap,
+            background_set: false,
+        })
+    );
+
+    // No more frames
+    assert_eq!(decoder.next_frame(), None);
+    assert_eq!(decoder.next_frame(), None);
+    assert_eq!(decoder.next_frame(), None);
+    assert_eq!(decoder.next_frame(), None);
+}
+
+#[test]
+fn check_one_frame_all_black_200x200() {
+    // ## Encode
+    let mut encoder = VideoEncoder::new();
+
+    let img = BitGrid::new(200, 200);
+    save_test_image("mono_frame", "black_200x200_good", &img);
+
+    encoder.push(img.clone());
+
+    let bytes = encoder.encode_to_vec().expect("Failed to encode");
+
+    // ## Decode
+    let mut decoder = VideoDecoder::new(&bytes);
+    dbg!(&decoder);
+
+    let header = decoder.header();
+    dbg!(header);
+    assert_eq!(header.n_frames, 1);
+    assert_eq!(header.width, img.width() as _);
+    assert_eq!(header.height, img.height() as _);
+
+    // Reserved are always set to 0
+    assert_eq!(
+        header.reserved,
+        vec![0_u32; header.reserved.len()].as_slice()
+    );
+
+    let frame = decoder.next_frame();
+    if let Some(frame) = &frame {
+        save_test_image("mono_frame", "black_200x200", frame.bitmap);
+    }
+    assert_eq!(
+        frame,
+        Some(Frame {
+            id: 1,
+            bitmap: &img,
+            background_set: false,
+        })
+    );
+
+    // No more frames
+    assert_eq!(decoder.next_frame(), None);
+    assert_eq!(decoder.next_frame(), None);
+    assert_eq!(decoder.next_frame(), None);
+    assert_eq!(decoder.next_frame(), None);
+}
+
+#[test]
+fn check_one_frame_all_white_200x200() {
+    // ## Encode
+    let mut encoder = VideoEncoder::new();
+
+    let mut img = BitGrid::new(200, 200);
+    img.as_mut_bytes().fill(0b1111_1111_u8);
+    save_test_image("mono_frame", "white_200x200_good", &img);
+
+    encoder.push(img.clone());
+
+    let bytes = encoder.encode_to_vec().expect("Failed to encode");
+
+    // ## Decode
+    let mut decoder = VideoDecoder::new(&bytes);
+    dbg!(&decoder);
+
+    let header = decoder.header();
+    dbg!(header);
+    assert_eq!(header.n_frames, 1);
+    assert_eq!(header.width, img.width() as _);
+    assert_eq!(header.height, img.height() as _);
+
+    // Reserved are always set to 0
+    assert_eq!(
+        header.reserved,
+        vec![0_u32; header.reserved.len()].as_slice()
+    );
+
+    let frame = decoder.next_frame();
+    if let Some(frame) = &frame {
+        save_test_image("mono_frame", "white_200x200", frame.bitmap);
+    }
+    assert_eq!(
+        frame,
+        Some(Frame {
+            id: 1,
+            bitmap: &img,
             background_set: false,
         })
     );
