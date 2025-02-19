@@ -1,3 +1,5 @@
+#![allow(clippy::print_literal)]
+
 use image::{imageops, Luma};
 use image_tools::{decoder::Frame, VideoDecoder, VideoEncoder};
 use simulations::BitGrid;
