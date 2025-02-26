@@ -234,7 +234,7 @@ mod tests {
         let text = indoc!(
             r#"# 4x4
             O...
-            .O..
+            .X..
             ..O.
             ...O
             "#
@@ -256,7 +256,7 @@ mod tests {
             r#"# 4x4
             ...O
             ..O.
-            .O..
+            .X..
             O...
             "#
         );
