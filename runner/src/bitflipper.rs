@@ -30,6 +30,7 @@ fn main() {
 
     let dx = rand::rng().random_range(0..100_000);
     let dy = rand::rng().random_range(0..100_000);
+    println!("New Sim: {dx}, {dy}");
     let mut sim = simulations::BitFlipper::new(WIDTH as i32, HEIGHT as i32, dx, dy);
 
     let palette = [
@@ -44,19 +45,37 @@ fn main() {
         if window.is_key_pressed(Key::Escape, KeyRepeat::No) {
             break;
         }
-
         if window.is_key_pressed(Key::Space, KeyRepeat::No) {
             is_running ^= true;
-        } else if window.is_key_pressed(Key::E, KeyRepeat::Yes) {
-            speed += 1;
+            println!("+ speed={speed}");
+        }
+        if window.is_key_pressed(Key::C, KeyRepeat::No) {
+            sim.bits.clear();
+        }
+        if window.is_key_pressed(Key::R, KeyRepeat::No) {
+            let dx = rand::rng().random_range(0..100_000);
+            let dy = rand::rng().random_range(0..100_000);
+            sim = simulations::BitFlipper::new(WIDTH as i32, HEIGHT as i32, dx, dy);
+            println!("New Sim: {dx}, {dy}");
+        }
+
+        const SPEED_ADJ: f64 = 1.05;
+        if window.is_key_pressed(Key::E, KeyRepeat::Yes) {
             if speed > 20 {
-                speed = (speed as f64 * 1.05) as i32;
+                speed = (speed as f64 * SPEED_ADJ) as i32;
+            } else if speed < -20 {
+                speed = (speed as f64 / SPEED_ADJ) as i32;
+            } else {
+                speed += 1;
             }
-            println!("+ speed={speed}");
         } else if window.is_key_pressed(Key::Q, KeyRepeat::Yes) {
-            speed -= 1;
-            // TODO: Slow down expoentially
-            println!("+ speed={speed}");
+            if speed > 20 {
+                speed = (speed as f64 / SPEED_ADJ) as i32;
+            } else if speed < -20 {
+                speed = (speed as f64 * SPEED_ADJ) as i32;
+            } else {
+                speed -= 1;
+            }
         }
 
         // We don't want to update the framebuffer unless the sim changed.
