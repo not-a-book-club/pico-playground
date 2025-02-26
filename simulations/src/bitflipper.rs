@@ -1,11 +1,11 @@
 use crate::BitGrid;
 
 pub struct BitFlipper {
-    x: i32,
-    y: i32,
+    pub x: i32,
+    pub y: i32,
     dir_x: i32,
     dir_y: i32,
-    bits: BitGrid,
+    pub bits: BitGrid,
 }
 
 impl BitFlipper {

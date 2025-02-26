@@ -10,13 +10,9 @@ use super::{Context, Scene};
 use crate::peripherals::SH1107Display;
 
 pub struct BitflipperScene {
+    bit_flipper: simulations::BitFlipper,
     step_index: i32,
     t: i32,
-    x: i32,
-    y: i32,
-    dir_x: i32,
-    dir_y: i32,
-    bits: simulations::BitGrid,
     cycle_count: i32,
     frames_since_input: i32,
     slopes: Vec<i32>,
@@ -37,17 +33,12 @@ impl BitflipperScene {
     {
         let view_width = display.width() as i32;
         let view_height = display.height() as i32;
-        let bits = simulations::BitGrid::new(view_width as usize, view_height as usize);
+        let bit_flipper = simulations::BitFlipper::new(view_width, view_height, 0, 0); // will be thrown away immediately
 
         Self {
-            bits,
-
+            bit_flipper: bit_flipper,
             step_index: 6, // vroom vroom
             t: 0,
-            x: 0,
-            y: 0,
-            dir_x: 374,
-            dir_y: 3895,
             cycle_count: 0,
             frames_since_input: 0,
             slopes: vec![],
@@ -65,56 +56,7 @@ impl BitflipperScene {
             * self.step_index.signum()
     }
 
-    fn flip_and_advance(&mut self, dir: i32) {
-        if self.x <= 0 {
-            self.dir_x = self.dir_x.abs() * dir;
-        }
-
-        if self.x >= self.bits.width() as i32 * self.dir_y.abs() {
-            self.dir_x = -self.dir_x.abs() * dir;
-        }
-
-        if self.y <= 0 {
-            self.dir_y = self.dir_y.abs() * dir;
-        }
-
-        if self.y >= self.bits.height() as i32 * self.dir_x.abs() {
-            self.dir_y = -self.dir_y.abs() * dir;
-        }
-
-        self.flip_bit(dir);
-
-        let next_x = Self::next_multiple_of_n_in_direction(self.x, self.dir_y, self.dir_x * dir);
-        let next_y = Self::next_multiple_of_n_in_direction(self.y, self.dir_x, self.dir_y * dir);
-
-        let dist_x = next_x - self.x;
-        let dist_y = next_y - self.y;
-
-        let move_amount = i32::min(dist_x.abs(), dist_y.abs());
-
-        self.x += move_amount * dir * self.dir_x.signum();
-        self.y += move_amount * dir * self.dir_y.signum();
-    }
-
-    fn next_multiple_of_n_in_direction(i: i32, n: i32, dir: i32) -> i32 {
-        if dir < 0 {
-            return -Self::next_multiple_of_n_in_direction(-i, -n, -dir);
-        }
-
-        i + n.abs() - Self::positive_modulo(i, n)
-    }
-
-    fn positive_modulo(i: i32, n: i32) -> i32 {
-        (n.abs() + (i % n.abs())) % n.abs()
-    }
-
-    fn flip_bit(&mut self, dir: i32) {
-        let x_pixel = (self.x + if self.dir_x * dir >= 0 { 0 } else { -1 }) / self.dir_y.abs();
-        let y_pixel = (self.y + if self.dir_y * dir >= 0 { 0 } else { -1 }) / self.dir_x.abs();
-        self.bits.flip(x_pixel as i16, y_pixel as i16);
-    }
-
-    fn set_slope_for_cycle_count(&mut self, ctx: &mut Context<'_>) {
+    fn slope_for_cycle_count(&mut self, ctx: &mut Context<'_>) -> (i32, i32) {
         let dir_x_idx: usize = if self.cycle_count < CYCLE_SIZE / 2 {
             (self.cycle_count * 4) as usize
         } else {
@@ -122,8 +64,7 @@ impl BitflipperScene {
         };
 
         self.fill_slope_vec_until(dir_x_idx + 1, ctx);
-        self.dir_x = self.slopes[dir_x_idx];
-        self.dir_y = self.slopes[dir_x_idx + 1];
+        (self.slopes[dir_x_idx], self.slopes[dir_x_idx + 1])
     }
 
     fn fill_slope_vec_until(&mut self, index: usize, ctx: &mut Context<'_>) {
@@ -131,6 +72,10 @@ impl BitflipperScene {
         while self.slopes.len() <= index {
             self.slopes.push(ctx.rng.random_range(1..2048_i32));
         }
+    }
+
+    fn positive_modulo(i: i32, n: i32) -> i32 {
+        (n.abs() + (i % n.abs())) % n.abs()
     }
 }
 
@@ -152,15 +97,7 @@ impl Scene for BitflipperScene {
             self.last_cycle_change_time_usec = ctx.time;
         }
 
-        if btn_a && btn_b {
-            self.frames_since_input = -1;
-
-            self.cycle_count = 0;
-            self.slopes.clear();
-            self.set_slope_for_cycle_count(ctx);
-
-            self.bits.clear();
-        } else if btn_a {
+        if btn_a {
             self.frames_since_input = -1;
             if self.step_index > 0 || self.step_index.abs() < STEP_NUMERATORS.len() as i32 {
                 self.step_index -= 1;
@@ -179,23 +116,29 @@ impl Scene for BitflipperScene {
         self.t -= pixel_delta * 10920;
 
         for _ in 0..pixel_delta.abs() {
-            if self.x == 0 && self.y == 0 {
+            if self.bit_flipper.x == 0 && self.bit_flipper.y == 0 {
                 self.last_cycle_change_time_usec = ctx.time;
                 self.cycle_count =
                     Self::positive_modulo(self.cycle_count + self.step_index.signum(), CYCLE_SIZE);
 
-                self.set_slope_for_cycle_count(ctx);
+                let slope = self.slope_for_cycle_count(ctx);
+                self.bit_flipper = simulations::BitFlipper::new(
+                    self.bit_flipper.bits.width() as _,
+                    self.bit_flipper.bits.height() as _,
+                    slope.0,
+                    slope.1,
+                )
             }
 
-            self.flip_and_advance(pixel_delta.signum());
+            self.bit_flipper.flip_and_advance(pixel_delta.signum());
         }
 
-        display.copy_image(&self.bits);
+        display.copy_image(&self.bit_flipper.bits);
 
         // Draw some nums on the bottom bar
         if self.last_cycle_change_time_usec + 2_000_000 >= ctx.time {
-            let dx = self.dir_x.abs();
-            let dy = self.dir_y.abs();
+            let dx = self.slope_for_cycle_count(ctx).0;
+            let dy = self.slope_for_cycle_count(ctx).1;
             let line = alloc::format!("({dx}, {dy})");
 
             let base_y = 48;
@@ -224,34 +167,5 @@ impl Scene for BitflipperScene {
         }
 
         true
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    use pretty_assertions::assert_eq;
-    use rstest::*;
-
-    #[rstest]
-    #[case::simple_1_to_2(1, 1, 1, 2)]
-    #[case::simple_2_to_4(2, 2, 2, 4)]
-    #[case::simple_3_to_4(3, 2, 2, 4)]
-    #[case::simple_3_to_7(3, 7, 2, 7)]
-    #[case::simple_9_to_12(9, 3, 3, 12)]
-    #[case::simple_9_to_5(9, 5, -1, 5)]
-    #[case::simple_negative_9_to_negative_5(-9, -5, 1, -5)]
-    #[case::simple_negative_9_to_negative_10(-9, -10, -1, -10)]
-    fn test_next_multiple_of_n_in_direction(
-        #[case] i: i32,
-        #[case] n: i32,
-        #[case] dir: i32,
-        #[case] expected: i32,
-    ) {
-        assert_eq!(
-            expected,
-            BitflipperScene::next_multiple_of_n_in_direction(i, n, dir)
-        );
     }
 }
