@@ -49,9 +49,13 @@ fn main() {
             is_running ^= true;
         } else if window.is_key_pressed(Key::E, KeyRepeat::Yes) {
             speed += 1;
+            if speed > 20 {
+                speed = (speed as f64 * 1.05) as i32;
+            }
             println!("+ speed={speed}");
         } else if window.is_key_pressed(Key::Q, KeyRepeat::Yes) {
             speed -= 1;
+            // TODO: Slow down expoentially
             println!("+ speed={speed}");
         }
 
