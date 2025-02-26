@@ -123,10 +123,13 @@ impl BitGrid {
         x = (x + self.width()) % self.width();
         y = (y + self.height()) % self.height();
 
-        let idx = (x / 8) + y * ((self.width() + 7) / 8);
+        let x = x as usize;
+        let y = y as usize;
+
+        let idx = (x / 8) + y * ((self.width() as usize + 7) / 8);
         let bit = x % 8;
 
-        (idx as usize, bit as u8)
+        (idx, bit as u8)
     }
 
     pub fn diff_with(&self, other: &BitGrid) -> BitGrid {

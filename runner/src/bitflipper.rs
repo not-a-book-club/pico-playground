@@ -1,4 +1,5 @@
 use minifb::{Key, KeyRepeat, Scale, ScaleMode, Window, WindowOptions};
+use rand::prelude::*;
 
 pub const AOC_BLUE: u32 = 0x0f_0f_23;
 pub const AOC_GOLD: u32 = 0xff_ff_66;
@@ -27,7 +28,9 @@ fn main() {
     // TODO: We should query the display's preferred refresh rate instead of assuming 60
     window.set_target_fps(60);
 
-    let mut life = simulations::BitFlipper::new(WIDTH as i32, HEIGHT as i32);
+    let dx = rand::rng().random_range(0..100_000);
+    let dy = rand::rng().random_range(0..100_000);
+    let mut sim = simulations::BitFlipper::new(WIDTH as i32, HEIGHT as i32, dx, dy);
 
     let palette = [
         AOC_BLUE, // dead
@@ -35,6 +38,7 @@ fn main() {
     ];
 
     let mut is_running = true;
+    let mut speed: i32 = 1;
 
     while window.is_open() {
         if window.is_key_pressed(Key::Escape, KeyRepeat::No) {
@@ -43,10 +47,12 @@ fn main() {
 
         if window.is_key_pressed(Key::Space, KeyRepeat::No) {
             is_running ^= true;
-        } else if window.is_key_pressed(Key::E, KeyRepeat::No) {
-            life.step_index_forward();
-        } else if window.is_key_pressed(Key::Q, KeyRepeat::No) {
-            life.step_index_bakward();
+        } else if window.is_key_pressed(Key::E, KeyRepeat::Yes) {
+            speed += 1;
+            println!("+ speed={speed}");
+        } else if window.is_key_pressed(Key::Q, KeyRepeat::Yes) {
+            speed -= 1;
+            println!("+ speed={speed}");
         }
 
         // We don't want to update the framebuffer unless the sim changed.
@@ -54,7 +60,9 @@ fn main() {
 
         if is_running {
             // TODO: We should update every N ms, not every frame.
-            life.step();
+            for _ in 0..speed.abs() {
+                sim.flip_and_advance(speed.signum());
+            }
             cells_were_updated = true;
         }
 
@@ -62,10 +70,10 @@ fn main() {
         if cells_were_updated {
             // TODO: We could dirty track ranges to speed up low-life simulation frames.
             //       This quickly turns into quad-tree dirty state tracking.
-            for y in 0..life.bits.height() {
-                for x in 0..life.bits.width() {
-                    let idx = x + y * WIDTH as i16;
-                    pixels[idx as usize] = palette[life.bits.get(x, y) as usize];
+            for y in 0..sim.bits.height() {
+                for x in 0..sim.bits.width() {
+                    let idx = (x as usize) + (y as usize) * WIDTH;
+                    pixels[idx ] = palette[sim.bits.get(x, y) as usize];
                 }
             }
         }

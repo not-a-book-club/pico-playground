@@ -2,6 +2,7 @@
 name = "runner"
 version = "0.1.0"
 edition = "2021"
+default-run = "bitflipper"
 
 [[bin]]
 name = "life"
@@ -20,4 +21,4 @@ path = "src/bitflipper.rs"
 simulations = { path = "../simulations" }
 
 minifb = "0.28"
-rand = { version = "0.9", features = ["small_rng"], default-features = false }
+rand = "0.9"
