@@ -233,7 +233,7 @@ mod tests {
             r#"# 4x4
             O...
             .X..
-            ..O.
+            ..O. # This comment should be ignored
             ...O
             "#
         );
