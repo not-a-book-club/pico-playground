@@ -11,7 +11,7 @@ fn main() {
 
     let mut pixels = vec![AOC_BLUE; WIDTH * HEIGHT];
     let mut window = Window::new(
-        "👾 Pico BitFlipper~!",
+        &format!("👾 Pico BitFlipper~! {WIDTH}x{HEIGHT}"),
         WIDTH,
         HEIGHT,
         WindowOptions {
