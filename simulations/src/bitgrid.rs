@@ -37,7 +37,6 @@ impl BitGrid {
         let mut grid = Self::new(dim_x, dim_y);
         let mut y = 0;
         for line in text.lines() {
-            let line = line.trim();
             let (line, _) = line.split_once("#").unwrap_or((line, ""));
 
             if line.is_empty() {
@@ -45,7 +44,6 @@ impl BitGrid {
             }
             for (x, c) in line.chars().enumerate() {
                 if set.contains(&c) {
-                    println!("Setting ({x}, {y})");
                     grid.set(x as _, y as _, true);
                 }
             }
@@ -239,6 +237,7 @@ mod tests {
             ...O
             "#
         );
+        println!("text={text}");
         let maybe_grid = BitGrid::parse(text, ['O', 'X']);
 
         let mut expected = BitGrid::new(4, 4);
@@ -254,12 +253,13 @@ mod tests {
     fn check_parse_diagonal_rev() {
         let text = indoc!(
             r#"# 4x4
-            ...O
-            ..O.
-            .X..
-            O...
+               O
+              O
+             X
+            O
             "#
         );
+        println!("text={text}");
         let maybe_grid = BitGrid::parse(text, ['O', 'X']);
 
         let mut expected = BitGrid::new(4, 4);
