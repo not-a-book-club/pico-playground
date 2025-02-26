@@ -73,7 +73,7 @@ fn main() {
             for y in 0..sim.bits.height() {
                 for x in 0..sim.bits.width() {
                     let idx = (x as usize) + (y as usize) * WIDTH;
-                    pixels[idx ] = palette[sim.bits.get(x, y) as usize];
+                    pixels[idx] = palette[sim.bits.get(x, y) as usize];
                 }
             }
         }
