@@ -63,8 +63,8 @@ impl Scene for ConwayScene {
         if ctx.btn_b {
             use rand::Rng;
             let n = 10;
-            let xx: i16 = ctx.rng.gen_range(2 * n..self.sim.width()) - n;
-            let yy: i16 = ctx.rng.gen_range(2 * n..self.sim.height()) - n;
+            let xx: i16 = ctx.rng.random_range(2 * n..self.sim.width()) - n;
+            let yy: i16 = ctx.rng.random_range(2 * n..self.sim.height()) - n;
             for y in (yy - n)..(yy + n) {
                 for x in (xx - n)..(xx + n) {
                     let dist = (x - xx).abs() + (y - yy).abs();

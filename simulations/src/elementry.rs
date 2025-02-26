@@ -49,9 +49,9 @@ impl Elementry {
 
         for x in 0..self.width() {
             let old = self.get(x);
-            let c = (self.get(x - 1) as u8) << 2
-                | (self.get(x + 0) as u8) << 1
-                | (self.get(x + 1) as u8) << 0;
+            let c = ((self.get(x - 1) as u8) << 2)
+                | ((self.get(x + 0) as u8) << 1)
+                | ((self.get(x + 1) as u8) << 0);
             let mask = 1 << c;
 
             let is_alive = (self.rule & mask) != 0;

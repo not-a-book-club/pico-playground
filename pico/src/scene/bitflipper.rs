@@ -129,7 +129,7 @@ impl BitflipperScene {
     fn fill_slope_vec_until(&mut self, index: usize, ctx: &mut Context<'_>) {
         use rand::Rng;
         while self.slopes.len() <= index {
-            self.slopes.push(ctx.rng.gen_range(1..2048_i32));
+            self.slopes.push(ctx.rng.random_range(1..2048_i32));
         }
     }
 }

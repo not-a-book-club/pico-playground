@@ -19,5 +19,5 @@ path = "src/bitflipper.rs"
 [dependencies]
 simulations = { path = "../simulations" }
 
-minifb = "0.27"
-rand = { version = "0.8", features = ["small_rng"], default-features = false }
+minifb = "0.28"
+rand = { version = "0.9", features = ["small_rng"], default-features = false }
