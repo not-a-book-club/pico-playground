@@ -7,9 +7,10 @@ edition = "2021"
 rand = { version = "0.9", default-features = false }
 
 [dev-dependencies]
-image = "0.25.5"
-rstest = "0.24"
+image = "0.25"
+indoc = "2"
 pretty_assertions = "1.4"
+rstest = "0.24"
 
 [features]
 default = ["std"]

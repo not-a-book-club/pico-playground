@@ -30,6 +30,31 @@ impl BitGrid {
         }
     }
 
+    pub fn parse<const N: usize>(text: &str, set: [char; N]) -> Option<Self> {
+        let dim_y = text.lines().count() - 1;
+        let dim_x = text.lines().next().map(|l| l.len() - 1).unwrap_or(0);
+
+        let mut grid = Self::new(dim_x, dim_y);
+        let mut y = 0;
+        for line in text.lines() {
+            let line = line.trim();
+            let (line, _) = line.split_once("#").unwrap_or((line, ""));
+
+            if line.is_empty() {
+                continue;
+            }
+            for (x, c) in line.chars().enumerate() {
+                if set.contains(&c) {
+                    println!("Setting ({x}, {y})");
+                    grid.set(x as _, y as _, true);
+                }
+            }
+            y += 1;
+        }
+
+        Some(grid)
+    }
+
     pub fn width(&self) -> i16 {
         self.width
     }
@@ -125,8 +150,20 @@ impl BitGrid {
 mod tests {
     #![allow(non_snake_case, clippy::bool_assert_comparison)]
     use super::*;
+
+    use indoc::indoc;
     use pretty_assertions::assert_eq;
     use rstest::*;
+
+    #[test]
+    fn check_0x0() {
+        // Make sure things don't panic
+        let grid = BitGrid::new(0, 0);
+        dbg!(&grid);
+
+        let bytes = grid.as_bytes();
+        dbg!(bytes);
+    }
 
     #[rstest]
     #[case::x_is_00(0, (0, 0))]
@@ -190,6 +227,48 @@ mod tests {
 
         // Make sure this doesn't panic
         let _ = grid.get(x, y);
+    }
+
+    #[test]
+    fn check_parse_diagonal() {
+        let text = indoc!(
+            r#"# 4x4
+            O...
+            .O..
+            ..O.
+            ...O
+            "#
+        );
+        let maybe_grid = BitGrid::parse(text, ['O', 'X']);
+
+        let mut expected = BitGrid::new(4, 4);
+        expected.set(0, 0, true);
+        expected.set(1, 1, true);
+        expected.set(2, 2, true);
+        expected.set(3, 3, true);
+
+        assert_eq!(maybe_grid, Some(expected));
+    }
+
+    #[test]
+    fn check_parse_diagonal_rev() {
+        let text = indoc!(
+            r#"# 4x4
+            ...O
+            ..O.
+            .O..
+            O...
+            "#
+        );
+        let maybe_grid = BitGrid::parse(text, ['O', 'X']);
+
+        let mut expected = BitGrid::new(4, 4);
+        expected.set(3, 0, true);
+        expected.set(2, 1, true);
+        expected.set(1, 2, true);
+        expected.set(0, 3, true);
+
+        assert_eq!(maybe_grid, Some(expected));
     }
 
     #[test]
