@@ -1,11 +1,22 @@
 use alloc::vec;
 use alloc::vec::Vec;
+use core::fmt::Debug;
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct BitGrid {
     buf: Vec<u8>,
     width: i16,
     height: i16,
+}
+
+impl Debug for BitGrid {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("BitGrid")
+            .field("width", &self.width)
+            .field("height", &self.height)
+            .field("number of bits set", &self.count_ones())
+            .finish()
+    }
 }
 
 impl BitGrid {
@@ -33,6 +44,10 @@ impl BitGrid {
 
     pub fn is_empty(&self) -> bool {
         self.buf.iter().all(|&byte| byte == 0)
+    }
+
+    pub fn count_ones(&self) -> i32 {
+        self.buf.iter().map(|&byte| byte.count_ones() as i32).sum()
     }
 
     #[track_caller]
