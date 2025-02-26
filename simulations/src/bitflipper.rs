@@ -16,8 +16,8 @@ impl BitFlipper {
             bits,
             x: 0,
             y: 0,
-            dir_x: dir_x,
-            dir_y: dir_y,
+            dir_x,
+            dir_y,
         }
     }
 
@@ -116,7 +116,7 @@ mod test {
 
     #[test]
     fn test_32_by_32_simple_diagonal() {
-        let mut expected = BitGrid::new(32, 32);
+        let expected = BitGrid::new(32, 32);
 
         let mut bit_flipper = BitFlipper::new(expected.width() as _, expected.height() as _, 1, 1);
         for _i in 0..64 {
