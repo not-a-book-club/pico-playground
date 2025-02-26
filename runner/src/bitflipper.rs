@@ -42,21 +42,27 @@ fn main() {
     let mut speed: i32 = 1;
 
     while window.is_open() {
+        // We don't want to update the framebuffer unless the sim changed.
+        let mut cells_were_updated = false;
+
         if window.is_key_pressed(Key::Escape, KeyRepeat::No) {
             break;
         }
         if window.is_key_pressed(Key::Space, KeyRepeat::No) {
             is_running ^= true;
             println!("+ speed={speed}");
+            cells_were_updated = true;
         }
         if window.is_key_pressed(Key::C, KeyRepeat::No) {
             sim.bits.clear();
+            cells_were_updated = true;
         }
         if window.is_key_pressed(Key::R, KeyRepeat::No) {
             let dx = rand::rng().random_range(0..100_000);
             let dy = rand::rng().random_range(0..100_000);
             sim = simulations::BitFlipper::new(WIDTH as i32, HEIGHT as i32, dx, dy);
             println!("New Sim: {dx}, {dy}");
+            cells_were_updated = true;
         }
 
         const SPEED_ADJ: f64 = 1.05;
@@ -77,9 +83,6 @@ fn main() {
                 speed -= 1;
             }
         }
-
-        // We don't want to update the framebuffer unless the sim changed.
-        let mut cells_were_updated = false;
 
         if is_running {
             // TODO: We should update every N ms, not every frame.
