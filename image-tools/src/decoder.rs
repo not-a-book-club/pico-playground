@@ -14,7 +14,7 @@ pub struct VideoDecoder<'a> {
 
 impl Debug for VideoDecoder<'_> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("Frame")
+        f.debug_struct("VideoDecoder")
             .field("bytes #", &self.bytes.len())
             .field("curr", &self.curr)
             .field("bitmap dims", &self.bitmap.dims())
