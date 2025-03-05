@@ -20,9 +20,9 @@ pub struct BitflipperScene {
 }
 
 #[rustfmt::skip]
-const STEP_NUMERATORS:   [i32; 24] = [1, 1, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1597, 2584, 4181, 4181 << 1, 4181 << 2, 4181 << 3];
+const STEP_NUMERATORS:   [i32; 15] = [3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1597, 2584];
 #[rustfmt::skip]
-const STEP_DENOMINATORS: [i32; 24] = [5, 3, 2, 1, 1, 1, 1, 1,  1,  1,  1,  1,  1,   1,   1,   1,   1,   1,    1,    1,    1,         1,         1,         1];
+const STEP_DENOMINATORS: [i32; 15] = [1, 1, 1,  1,  1,  1,  1,  1,   1,   1,   1,   1,   1,    1,    1];
 const CYCLE_SIZE: i32 = 1 << 11;
 
 impl BitflipperScene {
@@ -37,7 +37,7 @@ impl BitflipperScene {
 
         Self {
             bit_flipper,
-            step_index: 6, // vroom vroom
+            step_index: 4, // vroom vroom
             t: 0,
             cycle_count: 0,
             frames_since_input: 0,
@@ -89,8 +89,8 @@ impl Scene for BitflipperScene {
         DataCmdPin: embedded_hal::digital::OutputPin,
         Device: embedded_hal::spi::SpiDevice,
     {
-        let btn_a = (self.frames_since_input > 20) && ctx.btn_a;
-        let btn_b = (self.frames_since_input > 20) && ctx.btn_b;
+        let btn_a = (self.frames_since_input > 10) && ctx.btn_a;
+        let btn_b = (self.frames_since_input > 10) && ctx.btn_b;
 
         if btn_a || btn_b {
             // When we tap a button, show the slopes dialog again. briefly.
