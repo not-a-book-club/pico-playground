@@ -303,10 +303,6 @@ fn main() {
             ctx.btn_b = btn_b.is_low().unwrap();
             ctx.time = timer.get_counter().ticks();
 
-            if ctx.btn_a && ctx.btn_b {
-                panic!("Ha-ah! Panic handling works! {}:{}", file!(), line!());
-            }
-
             // scene.text = alloc::format!(
             //     indoc::indoc!(
             //         r#"time:  {time}
