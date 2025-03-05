@@ -288,11 +288,17 @@ fn main() {
         time: timer.get_counter().ticks(),
     };
 
+    let frame_time_target_usec = 1_000_000 / 60 /*fps*/;
+
+    let mut next_update_due = 0_u32;
     if load_main_scene {
         // let mut scene = pico::scene::DebugTextScene::new();
         let mut scene = pico::scene::BitflipperScene::new(&display);
 
         loop {
+            delay.delay_us(next_update_due.saturating_sub(timer.get_counter_low()));
+            next_update_due = timer.get_counter_low() + frame_time_target_usec;
+
             ctx.btn_a = btn_a.is_low().unwrap();
             ctx.btn_b = btn_b.is_low().unwrap();
             ctx.time = timer.get_counter().ticks();

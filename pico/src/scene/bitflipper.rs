@@ -36,7 +36,7 @@ impl BitflipperScene {
         let bit_flipper = simulations::BitFlipper::new(view_width, view_height, 0, 0); // will be thrown away immediately
 
         Self {
-            bit_flipper: bit_flipper,
+            bit_flipper,
             step_index: 6, // vroom vroom
             t: 0,
             cycle_count: 0,
