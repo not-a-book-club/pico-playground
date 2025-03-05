@@ -49,6 +49,7 @@ bytemuck = { version = "1.21", features = ["derive", "min_const_generics"] }
 indoc = "2"
 proc-bitfield = "0.5"
 rand = { version = "0.9", default-features = false, features = ["small_rng"] }
+num = { version = "0.4", default-features = false }
 
 [dev-dependencies]
 pretty_assertions = "1.4"
