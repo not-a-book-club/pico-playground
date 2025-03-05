@@ -70,7 +70,11 @@ impl BitflipperScene {
     fn fill_slope_vec_until(&mut self, index: usize, ctx: &mut Context<'_>) {
         use rand::Rng;
         while self.slopes.len() <= index {
-            self.slopes.push(ctx.rng.random_range(1..2048_i32));
+            let dx = ctx.rng.random_range(1..2048_i32);
+            let dy = ctx.rng.random_range(1..2048_i32);
+            let gcd = num::Integer::gcd(&dx, &dy);
+            self.slopes.push(dx / gcd);
+            self.slopes.push(dy / gcd);
         }
     }
 
@@ -138,7 +142,7 @@ impl Scene for BitflipperScene {
         if self.last_cycle_change_time_usec + 2_000_000 >= ctx.time {
             let dx = self.slope_for_cycle_count(ctx).0;
             let dy = self.slope_for_cycle_count(ctx).1;
-            let line = alloc::format!("({dx}, {dy})");
+            let line = alloc::format!("{dx} {dy}");
 
             let base_y = 48;
             let style_white_border = PrimitiveStyleBuilder::new()
