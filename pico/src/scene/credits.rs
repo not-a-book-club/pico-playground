@@ -83,9 +83,9 @@ impl Scene for CreditsScene {
 
         if btn_a || btn_b {
             if btn_a {
-                self.base_y += 1;
-            } else if btn_b {
                 self.base_y -= 1;
+            } else if btn_b {
+                self.base_y += 1;
             }
 
             self.base_y = self.base_y.min(32);
