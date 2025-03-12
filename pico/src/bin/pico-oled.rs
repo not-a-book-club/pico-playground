@@ -176,7 +176,6 @@ fn main() {
     }
 
     // Show a pretty title screen, and wait on it until user input
-    let mut load_main_scene = true;
     {
         let width = display.width() as i32;
         let height = display.height() as i32;
@@ -231,9 +230,6 @@ fn main() {
 
             // If EITHER A or B are pressed, move on to the next screen
             if a || b {
-                // If A is pressed, load the main screen
-                // Otherwise, we'll jump to credits
-                load_main_scene = a;
                 break;
             }
 
@@ -290,57 +286,68 @@ fn main() {
 
     let frame_time_target_usec = 1_000_000 / 60 /*fps*/;
 
+    let mut load_main_scene = true;
     let mut next_update_due = 0_u32;
-    if load_main_scene {
-        // let mut scene = pico::scene::DebugTextScene::new();
-        let mut scene = pico::scene::BitflipperScene::new(&display);
+    'big: loop {
+        if load_main_scene {
+            // let mut scene = pico::scene::DebugTextScene::new();
+            let mut scene = pico::scene::BitflipperScene::new(&display);
+            let load_time = timer.get_counter().ticks();
 
-        loop {
-            delay.delay_us(next_update_due.saturating_sub(timer.get_counter_low()));
-            next_update_due = timer.get_counter_low() + frame_time_target_usec;
+            loop {
+                delay.delay_us(next_update_due.saturating_sub(timer.get_counter_low()));
+                next_update_due = timer.get_counter_low() + frame_time_target_usec;
 
-            ctx.btn_a = btn_a.is_low().unwrap();
-            ctx.btn_b = btn_b.is_low().unwrap();
-            ctx.time = timer.get_counter().ticks();
+                if (ctx.time > load_time + 500_000/*usec*/) && ctx.btn_a && ctx.btn_b {
+                    load_main_scene = !load_main_scene;
+                    continue 'big;
+                }
 
-            // scene.text = alloc::format!(
-            //     indoc::indoc!(
-            //         r#"time:  {time}
-            //         Battery:
-            //             shunt V: {shunt_voltage}
-            //             power:   {power}
-            //             current: {current}
-            //         Pi Pico:
-            //             chip F:  {chip}
-            //             tmp36 F: {tmp36}
-            //         "#
-            //     ),
-            //     shunt_voltage = battery.shunt_voltage().abs(),
-            //     power = battery.power().abs(),
-            //     current = battery.current().abs(),
-            //     time = ctx.time,
-            //     chip = temp_sensor.chip_fahrenheit(),
-            //     tmp36 = temp_sensor.read_fahrenheit(),
-            // );
+                ctx.btn_a = btn_a.is_low().unwrap();
+                ctx.btn_b = btn_b.is_low().unwrap();
+                ctx.time = timer.get_counter().ticks();
 
-            if scene.update(&mut ctx, &mut display) {
-                display.flush();
+                // scene.text = alloc::format!(
+                //     indoc::indoc!(
+                //         r#"time:  {time}
+                //         Battery:
+                //             shunt V: {shunt_voltage}
+                //             power:   {power}
+                //             current: {current}
+                //         Pi Pico:
+                //             chip F:  {chip}
+                //             tmp36 F: {tmp36}
+                //         "#
+                //     ),
+                //     shunt_voltage = battery.shunt_voltage().abs(),
+                //     power = battery.power().abs(),
+                //     current = battery.current().abs(),
+                //     time = ctx.time,
+                //     chip = temp_sensor.chip_fahrenheit(),
+                //     tmp36 = temp_sensor.read_fahrenheit(),
+                // );
+
+                if scene.update(&mut ctx, &mut display) {
+                    display.flush();
+                }
             }
-        }
-    } else {
-        let mut scene = pico::scene::CreditsScene::new();
+        } else {
+            let mut scene = pico::scene::CreditsScene::new();
+            let load_time = timer.get_counter().ticks();
 
-        loop {
-            ctx.btn_a = btn_a.is_low().unwrap();
-            ctx.btn_b = btn_b.is_low().unwrap();
-            ctx.time = timer.get_counter().ticks();
+            loop {
+                ctx.btn_a = btn_a.is_low().unwrap();
+                ctx.btn_b = btn_b.is_low().unwrap();
+                ctx.time = timer.get_counter().ticks();
 
-            if ctx.btn_a && ctx.btn_b {
-                hal::rom_data::reset_to_usb_boot(0, 0);
-            }
+                if (ctx.time > load_time + 500_000/*usec*/) && ctx.btn_a && ctx.btn_b {
+                    load_main_scene = !load_main_scene;
+                    continue 'big;
+                }
 
-            if scene.update(&mut ctx, &mut display) {
-                display.flush();
+                if scene.update(&mut ctx, &mut display) {
+                    display.flush();
+                }
             }
         }
     }
