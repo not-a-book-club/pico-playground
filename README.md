@@ -26,7 +26,7 @@ rustup default stable
 rustup target add thumbv6m-none-eabi
 
 # Install tools we'll use to deploy to the pico
-cargo install efl2uf2-rs
+cargo install elf2uf2-rs
 
 # cargo watch can be helpful to write better code
 cargo install cargo-watch
