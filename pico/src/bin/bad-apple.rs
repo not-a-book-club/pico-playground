@@ -129,8 +129,10 @@ fn main() {
             msg = &msg[16..];
         }
 
-        if msg.starts_with("panicked at /Users/chris/code/me/pico-life/pico/src") {
-            msg = &msg[51..];
+        if let Some(short_msg) = msg.strip_prefix("panicked at ") {
+            if let Some(short_msg) = msg.strip_prefix(env!("CARGO_MANIFEST_DIR")) {
+                msg = short_msg;
+            }
         }
 
         // Panic info
