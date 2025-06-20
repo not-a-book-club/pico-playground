@@ -27,6 +27,12 @@ impl Default for CreditsScene {
         use alloc::format;
         use indoc::indoc;
 
+        let git_ref_full = &env!("VERGEN_GIT_SHA");
+        let git_ref = &git_ref_full[..git_ref_full.len().min(8)];
+        let git_dirty = env!("VERGEN_GIT_DIRTY");
+        let opt_level = env!("VERGEN_CARGO_OPT_LEVEL");
+        let build_date = env!("VERGEN_BUILD_DATE");
+
         let text = format!(
             indoc!(
                 /*
@@ -35,24 +41,26 @@ impl Default for CreditsScene {
                 That's this long:
                 |----------------------| */
                 r#"
-                ~~Credits~~~~        <3
-                                       .
+                ~~Credits~~~~
+                                     <3
                 Nerd:
                   Bug Fixing:  C&M
                   Bug Writing: C&M
-                  Emotional Support:
-                                       .
+                  Emotional
+                      Support:
+                                     <3
                 Software:
-                  Ref:   0x{git_ref}
-                  Built: {y:02}-{m:02}-{d:02}
-                                       .
-                <3
+                  Ref:   {git_ref}
+                  Dirty? {git_dirty}
+                  OptLv: {opt_level}
+                  Built: {build_date}
+                                     <3
                 "#
             ),
-            git_ref = 0,
-            y = 25,
-            m = 2,
-            d = 3,
+            git_ref = git_ref,
+            git_dirty = git_dirty,
+            build_date = build_date,
+            opt_level = opt_level,
         );
         Self {
             text,
@@ -83,9 +91,9 @@ impl Scene for CreditsScene {
 
         if btn_a || btn_b {
             if btn_a {
-                self.base_y -= 1;
+                self.base_y -= 2;
             } else if btn_b {
-                self.base_y += 1;
+                self.base_y += 2;
             }
 
             self.base_y = self.base_y.min(32);

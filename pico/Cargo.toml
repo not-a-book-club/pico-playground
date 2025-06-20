@@ -55,6 +55,9 @@ num = { version = "0.4", default-features = false }
 pretty_assertions = "1.4"
 rstest = "0.24"
 
+[build-dependencies]
+vergen-git2 = { version = "1.0.7", features = ["build", "cargo"] }
+
 # Enable full optimizations on debug builds of dependencies.
 # We rarely step through them.
 [profile.dev.package."*"]
