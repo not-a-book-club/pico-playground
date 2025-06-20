@@ -7,6 +7,8 @@ use rayon::prelude::*;
 use regex::Regex;
 use simulations::BitGrid;
 
+use image_tools::*;
+
 #[derive(Parser, Debug)]
 struct Opts {
     #[command(subcommand)]
@@ -16,6 +18,7 @@ struct Opts {
 #[derive(Subcommand, Clone, Debug)]
 enum Cmd {
     Compress(Compress),
+    Info(Info),
 }
 use Cmd::*;
 
@@ -51,14 +54,64 @@ struct Compress {
     frame_rate_div: usize,
 }
 
+#[derive(Parser, Clone, Debug)]
+struct Info {
+    inputs: Vec<PathBuf>,
+}
+
 fn main() {
     let opts = Opts::parse();
 
-    #[allow(irrefutable_let_patterns)]
-    if let Compress(compress) = opts.cmd {
-        do_compress(&compress);
-    } else {
-        todo!("Unsupported so far: {:#?}", opts);
+    match opts.cmd {
+        Compress(compress) => {
+            do_compress(&compress);
+        }
+        Info(info) => {
+            do_info(&info);
+        }
+    }
+}
+
+fn do_info(info: &Info) {
+    for (i, input) in info.inputs.iter().enumerate() {
+        if i > 0 {
+            println!();
+        }
+
+        println!("\"{}\"", input.display());
+
+        let bytes = match std::fs::read(input) {
+            Ok(bytes) => bytes,
+            Err(err) => {
+                eprintln!("    Failed to read \"{}\": {err}", input.display());
+                continue;
+            }
+        };
+        let decoder = VideoDecoder::new(&bytes);
+        let header = decoder.header();
+
+        if let Ok(magic) = core::str::from_utf8(&header.magic) {
+            if header.magic != image_tools::codec::MAGIC {
+                println!("    Magic:  \"{}\"", magic);
+            } else {
+                println!("    Magic:  \"{}\" (invalid)", magic);
+            }
+        } else {
+            print!("Magic:  ");
+            for b in header.magic {
+                print!("{b:02x} ");
+            }
+            println!(" (invalid)");
+        }
+        println!("    Codec:  v{}", header.version);
+        println!("    bpp:    {}", 1); // we only support this bpp
+        println!("    Dims:   {} x {}", header.width, header.height);
+        println!("    Frames: {}", HumanCount(header.n_frames as _));
+        let bbytes = BinaryBytes(bytes.len() as _);
+        let hbytes = HumanCount(bytes.len() as _);
+        println!("    Size:   {bbytes} ({hbytes} bytes)");
+
+        // TODO: Be nice to know what chunk types are used
     }
 }
 
@@ -158,14 +211,14 @@ fn do_compress(opts: &Compress) {
     println!();
 
     println!("+ Encoding");
-    let mut encoder = image_tools::VideoEncoder::new();
+    let mut encoder = VideoEncoder::new();
     for frame in frames {
         encoder.push(frame);
     }
     let packed_buffer: Vec<u8> = encoder.encode_to_vec().unwrap();
     println!("+ Encoded as {}.", BinaryBytes(packed_buffer.len() as u64));
 
-    let decoder = image_tools::VideoDecoder::new(&packed_buffer);
+    let decoder = VideoDecoder::new(&packed_buffer);
     println!("+ {:#?}", decoder.header());
 
     let mut output = opts.output.clone();

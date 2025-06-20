@@ -8,9 +8,8 @@ use static_assertions::*;
 use simulations::BitGrid;
 
 /// `BITVIDEO🍎`
-const MAGIC: [u8; 12] = *b"BITVIDEO\xF0\x9F\x8D\x8E";
-
-const VERSION: u32 = 2;
+pub const MAGIC: [u8; 12] = *b"BITVIDEO\xF0\x9F\x8D\x8E";
+pub const VERSION: u32 = 2;
 
 #[derive(Copy, Clone, Pod, Zeroable, PartialEq, Eq)]
 #[repr(C)]
