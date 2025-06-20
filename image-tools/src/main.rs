@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use image::imageops;
 use indicatif::*;
 use rayon::prelude::*;
@@ -9,6 +9,18 @@ use simulations::BitGrid;
 
 #[derive(Parser, Debug)]
 struct Opts {
+    #[command(subcommand)]
+    cmd: Cmd,
+}
+
+#[derive(Subcommand, Clone, Debug)]
+enum Cmd {
+    Compress(Compress),
+}
+use Cmd::*;
+
+#[derive(Parser, Clone, Debug)]
+struct Compress {
     /// Path to folder with frames as numbed image files (e.g. "bad_apple_1234.png")
     #[arg(value_name = "DIR", default_value = "frames")]
     frames_dir: PathBuf,
@@ -42,8 +54,16 @@ struct Opts {
 fn main() {
     let opts = Opts::parse();
 
-    let pattern = Regex::new("[a-zA-Z_-]+([0-9]+).png").unwrap();
+    #[allow(irrefutable_let_patterns)]
+    if let Compress(compress) = opts.cmd {
+        do_compress(&compress);
+    } else {
+        todo!("Unsupported so far: {:#?}", opts);
+    }
+}
 
+fn do_compress(opts: &Compress) {
+    let pattern = Regex::new("[a-zA-Z_-]+([0-9]+).png").unwrap();
     println!("+ Looking for frames in {:?}", opts.frames_dir.display());
     let mut file_paths = find_files(&opts.frames_dir, pattern);
     println!("+ Found {} frames", file_paths.len());
@@ -148,7 +168,7 @@ fn main() {
     let decoder = image_tools::VideoDecoder::new(&packed_buffer);
     println!("+ {:#?}", decoder.header());
 
-    let mut output = opts.output;
+    let mut output = opts.output.clone();
     if output.is_dir() {
         output.push("out.bin");
     }
@@ -156,7 +176,11 @@ fn main() {
 }
 
 fn find_files(dir: &Path, pattern: Regex) -> Vec<(usize, PathBuf)> {
-    assert!(dir.is_dir());
+    assert!(
+        dir.is_dir(),
+        "\"{}\" is not a directory",
+        dir.to_string_lossy()
+    );
 
     let mut files = vec![];
 

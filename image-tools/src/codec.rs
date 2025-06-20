@@ -91,7 +91,7 @@ impl FrameCompressionKind {
     /// - A `32` x `32` black image would be encoded like `[32*32]`.
     /// - A `32` x `32` white image would be encoded like `[0, 32*32]`
     /// - A `32` x `32` half-n-half image (left half is black, right half is white) would
-    ///     be encoded like `[16, 16, 16, 16, ...]` for a total of 2 per line for 32 lines.
+    ///   be encoded like `[16, 16, 16, 16, ...]` for a total of 2 per line for 32 lines.
     ///
     /// Note: The codec stores the dimensions for the frames
     pub const RUN_LENGTH_ENCODING: Self = Self(1);
