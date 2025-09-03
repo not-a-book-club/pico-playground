@@ -4,6 +4,27 @@ use rand::prelude::*;
 pub const AOC_BLUE: u32 = 0x0f_0f_23;
 pub const AOC_GOLD: u32 = 0xff_ff_66;
 
+fn gcd(mut a: i32, mut b: i32) -> i32 {
+    while b != 0 {
+        let temp = b;
+        b = a % b;
+        a = temp;
+    }
+    a
+}
+
+fn rand_dxdy(width: usize, height: usize) -> (i32, i32) {
+    let limit = 3 * usize::max(width, height) as i32;
+    let dx = rand::rng().random_range(1..limit);
+    let dy = rand::rng().random_range(1..limit);
+
+    let g = gcd(dx, dy);
+    debug_assert_eq!(dx % g, 0);
+    debug_assert_eq!(dy % g, 0);
+
+    (dx / g, dy / g)
+}
+
 fn main() {
     // TODO: Drive these with clap
     const WIDTH: usize = 128;
@@ -28,8 +49,7 @@ fn main() {
     // TODO: We should query the display's preferred refresh rate instead of assuming 60
     window.set_target_fps(60);
 
-    let dx = rand::rng().random_range(0..100_000);
-    let dy = rand::rng().random_range(0..100_000);
+    let (dx, dy) = rand_dxdy(WIDTH, HEIGHT);
     println!("New Sim: {dx}, {dy}");
     let mut sim = simulations::BitFlipper::new(WIDTH as i32, HEIGHT as i32, dx, dy);
 
@@ -57,9 +77,8 @@ fn main() {
             sim.bits.clear();
             cells_were_updated = true;
         }
-        if window.is_key_pressed(Key::R, KeyRepeat::No) {
-            let dx = rand::rng().random_range(0..100_000);
-            let dy = rand::rng().random_range(0..100_000);
+        if window.is_key_pressed(Key::R, KeyRepeat::Yes) {
+            let (dx, dy) = rand_dxdy(WIDTH, HEIGHT);
             sim = simulations::BitFlipper::new(WIDTH as i32, HEIGHT as i32, dx, dy);
             println!("New Sim: {dx}, {dy}");
             cells_were_updated = true;
